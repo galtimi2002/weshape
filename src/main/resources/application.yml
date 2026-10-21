@@ -2,6 +2,12 @@ spring:
   application:
     name: weshape-backend
 
+  # Running from the IDE with no profile picks up application-local.yml (your
+  # Neon database, dev auth). That file is gitignored and never reaches the
+  # Docker image, so on Render this line changes nothing.
+  profiles:
+    default: local
+
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/weshape}
     username: ${DATABASE_USERNAME:weshape}

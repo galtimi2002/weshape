@@ -13,7 +13,7 @@ One table, `users`:
 | `email` | From the verified Firebase token |
 | `first_name`, `last_name` | Set at registration (or the "one more step" screen after Google sign-in) |
 | `country` | ISO 3166-1 alpha-2 (`RO`, `HU`, ...) |
-| `preferred_language` | One of 15: en hu ro de fr es it pt nl pl hr fi ru tr zh |
+| `preferred_language` | One of 19: en hu ro de fr es it pt nl pl hr fi sv da el ru tr zh ja |
 | `theme_mode` | `SYSTEM`, `LIGHT` or `DARK` |
 
 **Passwords are not in this database.** Firebase Authentication stores them,
@@ -37,8 +37,11 @@ Leaving `preferredLanguage` out of the profile call sets it from the country
 ```bash
 cp src/main/resources/application-local.yml.example src/main/resources/application-local.yml
 # fill in the Neon connection string, keep auth mode "dev" for now
-./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+./mvnw spring-boot:run
 ```
+
+With no profile given, the `local` profile is used, so the green Run button
+in IntelliJ works the same way.
 
 In dev mode any `Authorization: Bearer dev:<uid>:<email>` token is accepted:
 
