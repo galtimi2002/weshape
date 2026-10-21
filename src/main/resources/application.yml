@@ -1,0 +1,72 @@
+spring:
+  application:
+    name: weshape-backend
+
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/weshape}
+    username: ${DATABASE_USERNAME:weshape}
+    password: ${DATABASE_PASSWORD:weshape}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:5}
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    # Deliberately NOT baseline-on-migrate: on a non-empty database Flyway would
+    # assume the schema is already version 1 and silently skip V1__init.sql.
+    baseline-on-migrate: false
+    locations: classpath:db/migration
+
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+  compression:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /docs
+  api-docs:
+    path: /v3/api-docs
+
+weshape:
+  auth:
+    # firebase = verify real Firebase ID tokens (production)
+    # dev      = accept "dev:<uid>:<email>" bearer tokens, NEVER use in production
+    mode: ${WESHAPE_AUTH_MODE:firebase}
+    # Either paste the service-account JSON into FIREBASE_CREDENTIALS_JSON,
+    # or base64-encode it into FIREBASE_CREDENTIALS_BASE64,
+    # or point FIREBASE_CREDENTIALS_PATH at a mounted secret file.
+    firebase:
+      credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
+      credentials-base64: ${FIREBASE_CREDENTIALS_BASE64:}
+      credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
+      project-id: ${FIREBASE_PROJECT_ID:}
+  cors:
+    # Comma-separated list of allowed web origins for the Flutter web build.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:*,https://localhost:*}
+  docs:
+    public: ${DOCS_PUBLIC:true}
+
+logging:
+  level:
+    com.weshape.backend: ${LOG_LEVEL:INFO}

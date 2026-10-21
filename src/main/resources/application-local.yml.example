@@ -1,0 +1,17 @@
+# Copy to application-local.yml (gitignored) and run with:
+#   ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+spring:
+  datasource:
+    # Neon connection string. The postgres:// form from the Neon dashboard also works.
+    url: jdbc:postgresql://ep-xxxx-xxxx.eu-central-1.aws.neon.tech/weshape?sslmode=require
+    username: your_neon_user
+    password: your_neon_password
+
+weshape:
+  auth:
+    # dev while Firebase is not configured yet; firebase once it is.
+    mode: dev
+    firebase:
+      credentials-path: serviceAccount.json
+  cors:
+    allowed-origins: http://localhost:*,https://localhost:*

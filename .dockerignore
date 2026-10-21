@@ -1,0 +1,7 @@
+target/
+.git/
+.idea/
+.env
+.env.*
+serviceAccount*.json
+src/main/resources/application-local.yml

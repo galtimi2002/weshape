@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: weshape-backend
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /actuator/health
+    autoDeploy: true
+    envVars:
+      # --- Database (Neon) -------------------------------------------------
+      # Paste the Neon connection string as is; postgres:// and jdbc: both work.
+      - key: DATABASE_URL
+        sync: false
+
+      # --- Auth ------------------------------------------------------------
+      - key: WESHAPE_AUTH_MODE
+        value: firebase
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      # The service account, base64 encoded. In PowerShell:
+      #   [Convert]::ToBase64String([IO.File]::ReadAllBytes("serviceAccount.json"))
+      - key: FIREBASE_CREDENTIALS_BASE64
+        sync: false
+
+      # --- Web client ------------------------------------------------------
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://weshape-app.onrender.com,http://localhost:*
+
+      # Swagger UI describes every endpoint. Handy locally, not something to
+      # publish on the public address.
+      - key: DOCS_PUBLIC
+        value: "false"
+
+      - key: JAVA_OPTS
+        value: -XX:MaxRAMPercentage=75 -XX:+UseSerialGC
