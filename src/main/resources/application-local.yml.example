@@ -8,6 +8,9 @@ spring:
     password: your_neon_password
 
 weshape:
+  db:
+    # Own schema, so this can share a Neon database with another app.
+    schema: weshape
   auth:
     # dev while Firebase is not configured yet; firebase once it is.
     mode: dev

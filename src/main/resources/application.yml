@@ -22,6 +22,10 @@ spring:
     open-in-view: false
     properties:
       hibernate:
+        # Every query names the schema explicitly. Relying on the connection's
+        # search_path is not enough: Neon's pooled endpoint drops currentSchema,
+        # and Hibernate then validated against another app's "users" table.
+        default_schema: ${weshape.db.schema}
         jdbc:
           time_zone: UTC
 
@@ -31,6 +35,8 @@ spring:
     # assume the schema is already version 1 and silently skip V1__init.sql.
     baseline-on-migrate: false
     locations: classpath:db/migration
+    # Created on first start if missing.
+    schemas: ${weshape.db.schema}
 
 server:
   port: ${PORT:8080}
@@ -55,6 +61,11 @@ springdoc:
     path: /v3/api-docs
 
 weshape:
+  db:
+    # The PostgreSQL schema holding WeShape's tables. "public" for a database
+    # of its own; set DB_SCHEMA=weshape to share a database with another app
+    # (as the local setup shares Inventica's Neon database).
+    schema: ${DB_SCHEMA:public}
   auth:
     # firebase = verify real Firebase ID tokens (production)
     # dev      = accept "dev:<uid>:<email>" bearer tokens, NEVER use in production
