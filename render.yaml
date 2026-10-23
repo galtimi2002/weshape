@@ -29,7 +29,7 @@ services:
 
       # --- Web client ------------------------------------------------------
       - key: CORS_ALLOWED_ORIGINS
-        value: https://weshape-app.onrender.com,http://localhost:*
+        value: https://weshapeenergy.com,https://www.weshapeenergy.com,https://weshape-app.onrender.com,http://localhost:*
 
       # Swagger UI describes every endpoint. Handy locally, not something to
       # publish on the public address.
