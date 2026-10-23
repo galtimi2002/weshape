@@ -8,8 +8,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SupportedLanguagesTest {
 
     @Test
-    void nineteenLanguagesEnglishFirst() {
-        assertThat(SupportedLanguages.CODES).hasSize(19).startsWith("en").doesNotHaveDuplicates();
+    void twentyFiveLanguagesEnglishFirst() {
+        assertThat(SupportedLanguages.CODES).hasSize(25).startsWith("en").doesNotHaveDuplicates();
     }
 
     @Test
@@ -23,6 +23,10 @@ class SupportedLanguagesTest {
         assertThat(SupportedLanguages.forCountry("DK")).isEqualTo("da");
         assertThat(SupportedLanguages.forCountry("CY")).isEqualTo("el");
         assertThat(SupportedLanguages.forCountry("JP")).isEqualTo("ja");
+        assertThat(SupportedLanguages.forCountry("KR")).isEqualTo("ko");
+        assertThat(SupportedLanguages.forCountry("IN")).isEqualTo("hi");
+        assertThat(SupportedLanguages.forCountry("AE")).isEqualTo("ar");
+        assertThat(SupportedLanguages.forCountry("VN")).isEqualTo("vi");
         assertThat(SupportedLanguages.forCountry("NO")).isEqualTo("en");
         assertThat(SupportedLanguages.forCountry(null)).isEqualTo("en");
     }

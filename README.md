@@ -13,7 +13,7 @@ One table, `users`:
 | `email` | From the verified Firebase token |
 | `first_name`, `last_name` | Set at registration (or the "one more step" screen after Google sign-in) |
 | `country` | ISO 3166-1 alpha-2 (`RO`, `HU`, ...) |
-| `preferred_language` | One of 19: en hu ro de fr es it pt nl pl hr fi sv da el ru tr zh ja |
+| `preferred_language` | One of 25: en hu ro de fr es it pt nl pl hr fi sv da el ru tr zh ja ko hi bn id vi ar |
 | `theme_mode` | `SYSTEM`, `LIGHT` or `DARK` |
 
 **Passwords are not in this database.** Firebase Authentication stores them,

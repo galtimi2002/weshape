@@ -20,7 +20,8 @@ public final class SupportedLanguages {
     /** ISO 639-1 codes, in the order the app lists them. */
     public static final List<String> CODES = List.of(
             "en", "hu", "ro", "de", "fr", "es", "it", "pt", "nl", "pl",
-            "hr", "fi", "sv", "da", "el", "ru", "tr", "zh", "ja");
+            "hr", "fi", "sv", "da", "el", "ru", "tr", "zh", "ja", "ko",
+            "hi", "bn", "id", "vi", "ar");
 
     private static final Set<String> CODE_SET = Set.copyOf(CODES);
 
@@ -47,6 +48,13 @@ public final class SupportedLanguages {
         map("tr", "TR");
         map("zh", "CN", "TW", "HK", "MO");
         map("ja", "JP");
+        map("ko", "KR");
+        map("hi", "IN");
+        map("bn", "BD");
+        map("id", "ID");
+        map("vi", "VN");
+        map("ar", "SA", "AE", "EG", "MA", "DZ", "TN", "JO", "QA", "KW", "OM", "BH",
+                "LB", "IQ", "LY", "SY", "YE", "SD", "PS", "MR");
     }
 
     private static final Set<String> ISO_COUNTRIES = Set.of(Locale.getISOCountries());
