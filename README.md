@@ -46,7 +46,7 @@ in IntelliJ works the same way.
 In dev mode any `Authorization: Bearer dev:<uid>:<email>` token is accepted:
 
 ```powershell
-curl.exe http://localhost:8080/api/v1/users/me -H "Authorization: Bearer dev:gabor:gabor@weshape.energy"
+curl.exe http://localhost:8080/api/v1/users/me -H "Authorization: Bearer dev:demo:demo@weshape.energy"
 ```
 
 Swagger UI: http://localhost:8080/docs
