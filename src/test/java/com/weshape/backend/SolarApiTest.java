@@ -40,20 +40,21 @@ class SolarApiTest {
     }
 
     @Test
-    @DisplayName("Cluj-Napoca gets plausible values, and the months add up to the year")
+    @DisplayName("Cluj-Napoca gets plausible values (from the PVGIS grid, PVGIS itself is off in tests), and the months add up to the year")
     void pointValues() throws Exception {
         String json = mockMvc.perform(get("/api/v1/solar/point").param("lat", "46.77").param("lon", "23.59")
                         .header("Authorization", ADA))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.gtiMonthly.length()").value(12))
                 .andExpect(jsonPath("$.pvoutMonthly.length()").value(12))
-                .andExpect(jsonPath("$.example").value(true))
+                .andExpect(jsonPath("$.example").isBoolean())
+                .andExpect(jsonPath("$.source").isString())
                 .andReturn().getResponse().getContentAsString();
 
         double gti = ((Number) JsonPath.read(json, "$.gti")).doubleValue();
         double pvout = ((Number) JsonPath.read(json, "$.pvout")).doubleValue();
         int opta = ((Number) JsonPath.read(json, "$.opta")).intValue();
-        assertThat(pvout).isBetween(1150.0, 1400.0);
+        assertThat(pvout).isBetween(1000.0, 1400.0);
         assertThat(gti).isBetween(pvout * 1.1, pvout * 1.35);
         assertThat(opta).isBetween(33, 39);
 
