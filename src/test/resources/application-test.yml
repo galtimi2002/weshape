@@ -16,3 +16,7 @@ weshape:
     mode: dev
   cors:
     allowed-origins: http://localhost:*
+  solar:
+    pvgis:
+      # Tests never call the internet; the example values answer instead.
+      enabled: false

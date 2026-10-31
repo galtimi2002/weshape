@@ -55,6 +55,9 @@ public class SecurityConfig {
                             .requestMatchers(
                                     "/api/v1/ping",
                                     "/api/v1/languages",
+                                    // Map pictures and their legend: the same for everyone, no personal data.
+                                    "/api/v1/solar/layers",
+                                    "/api/v1/solar/layers/**",
                                     // Spring forwards failures here; keeping it open lets the
                                     // real status (400, 403, 404) reach the client instead of a 401.
                                     "/error",

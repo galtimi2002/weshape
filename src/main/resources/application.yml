@@ -83,6 +83,13 @@ weshape:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:*,https://localhost:*}
   docs:
     public: ${DOCS_PUBLIC:true}
+  solar:
+    pvgis:
+      # Values for a single place come live from PVGIS; the map layers come
+      # from solar/pvgis-grid.csv.gz (see SolarGridBuilder).
+      enabled: ${PVGIS_ENABLED:true}
+      url: ${PVGIS_URL:https://re.jrc.ec.europa.eu/api/v5_3/PVcalc}
+      timeout-seconds: 20
 
 logging:
   level:

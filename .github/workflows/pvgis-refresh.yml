@@ -1,0 +1,89 @@
+name: Refresh solar map data
+
+# Once a month: does PVGIS have a new API version, or newer data than the map
+# grid was built from? If so, rebuild src/main/resources/solar/pvgis-grid.csv.gz
+# and open a pull request for review. Nothing goes live until it is merged.
+#
+# Needs, once: Settings → Actions → General → Workflow permissions →
+# "Allow GitHub Actions to create and approve pull requests".
+
+on:
+  schedule:
+    - cron: '17 4 3 * *'   # 04:17 UTC on the 3rd of every month
+  workflow_dispatch:         # and a "Run workflow" button on the Actions tab
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pvgis-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      REVIEWER: galtimi2002
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Compile
+        run: |
+          mvn -B -q -DskipTests compile
+          mvn -B -q dependency:build-classpath -Dmdep.outputFile=target/cp.txt
+
+      - name: Check PVGIS for news
+        id: check
+        run: java -cp "target/classes:$(cat target/cp.txt)" com.weshape.backend.solar.SolarDataCheck
+
+      - name: Use the new API version
+        if: steps.check.outputs.update == 'true'
+        run: |
+          new_version=$(echo "${{ steps.check.outputs.url }}" | grep -o 'api/v[0-9]*_[0-9]*')
+          sed -i "s#api/v[0-9]*_[0-9]*#${new_version}#g" \
+            src/main/resources/application.yml \
+            src/main/java/com/weshape/backend/solar/PvgisClient.java
+          mvn -B -q -DskipTests compile
+
+      - name: Rebuild the map grid (about half an hour)
+        if: steps.check.outputs.update == 'true'
+        env:
+          PVGIS_URL: ${{ steps.check.outputs.url }}
+        run: java -cp "target/classes:$(cat target/cp.txt)" com.weshape.backend.solar.SolarGridBuilder
+
+      - name: Run the tests
+        if: steps.check.outputs.update == 'true'
+        run: mvn -B verify
+
+      - name: Open a pull request
+        if: steps.check.outputs.update == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: pvgis-refresh
+          delete-branch: true
+          commit-message: "Solar map data: ${{ steps.check.outputs.data }}"
+          title: "Solar map data: ${{ steps.check.outputs.data }}"
+          body: |
+            ${{ steps.check.outputs.reason }}.
+
+            The monthly check rebuilt `src/main/resources/solar/pvgis-grid.csv.gz`
+            from ${{ steps.check.outputs.url }} and the tests pass.
+
+            Before merging: run the backend locally, open the map and check that
+            the colours and a few places (for example Cluj-Napoca) look right.
+            Merging deploys it.
+          reviewers: ${{ env.REVIEWER }}
+          assignees: ${{ env.REVIEWER }}
+          add-paths: |
+            src/main/resources/solar/pvgis-grid.csv.gz
+            src/main/resources/application.yml
+            src/main/java/com/weshape/backend/solar/PvgisClient.java
