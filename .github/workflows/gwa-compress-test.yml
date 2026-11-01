@@ -1,0 +1,38 @@
+name: Wind data compression test
+
+# Tries the Global Wind Atlas files for Romania (about 110 MB, downloaded for real):
+# how small do they get as compressed cloud-optimised GeoTIFFs, what would the
+# whole world take, and how accurate is it to work out 50 m and 150 m from
+# 10, 100 and 200 m instead of storing them. Results are in the run summary.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GDAL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gdal-bin python3-gdal python3-numpy > /dev/null
+          gdalinfo --version
+
+      - name: Download the Romania files
+        run: |
+          mkdir -p gwa
+          for layer in wind-speed/10 wind-speed/50 wind-speed/100 wind-speed/150 wind-speed/200 power-density/100; do
+            name=$(echo "$layer" | tr '/' '_')
+            curl -sSL --retry 3 --max-time 300 -o "gwa/$name.tif" "https://globalwindatlas.info/api/gis/country/ROU/$layer"
+            ls -l "gwa/$name.tif"
+          done
+          gdalinfo gwa/wind-speed_100.tif | head -40
+
+      - name: Compress, measure and check accuracy
+        run: python3 tool/gwa_compress_test.py gwa >> "$GITHUB_STEP_SUMMARY"
