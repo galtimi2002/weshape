@@ -49,7 +49,8 @@ public class WindController {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("available", wind.available());
         out.put("bounds", List.of(-180.0, -64.0, 180.0, 80.0));
-        out.put("maxZoom", 10);
+        // Tiles exist up to this zoom; the map enlarges them beyond it.
+        out.put("maxZoom", WindData.STORED_MAX_ZOOM);
         out.put("heights", WindLayer.HEIGHTS);
         out.put("source", WindData.SOURCE);
         out.put("attribution", ATTRIBUTION);

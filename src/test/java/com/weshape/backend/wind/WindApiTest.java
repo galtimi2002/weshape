@@ -57,6 +57,7 @@ class WindApiTest {
                 .andExpect(jsonPath("$.layers[0].id").value("speed"))
                 .andExpect(jsonPath("$.layers[1].scale").value("log"))
                 .andExpect(jsonPath("$.heights.length()").value(5))
+                .andExpect(jsonPath("$.maxZoom").value(8))
                 .andExpect(jsonPath("$.attribution").value(org.hamcrest.Matchers.containsString("Global Wind Atlas")));
         mockMvc.perform(get("/api/v1/wind/tiles/speed/0/0/0.png"))
                 .andExpect(status().isOk())

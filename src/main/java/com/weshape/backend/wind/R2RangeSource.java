@@ -32,9 +32,24 @@ public class R2RangeSource implements RangeSource {
 
     @Override
     public byte[] read(String key, long offset, int length) throws IOException {
-        String path = "/" + bucket + "/" + key;
         String range = "bytes=" + offset + "-" + (offset + length - 1);
-        Map<String, String> headers = AwsV4Signer.signGet(host, path, Map.of("range", range),
+        byte[] body = get(key, Map.of("range", range));
+        if (body.length > length) {
+            // A 200 instead of 206: the store ignored the range; keep the part asked for.
+            int from = (int) Math.min(offset, body.length);
+            return java.util.Arrays.copyOfRange(body, from, Math.min(body.length, from + length));
+        }
+        return body;
+    }
+
+    @Override
+    public byte[] readAll(String key) throws IOException {
+        return get(key, Map.of());
+    }
+
+    private byte[] get(String key, Map<String, String> extra) throws IOException {
+        String path = "/" + bucket + "/" + key;
+        Map<String, String> headers = AwsV4Signer.signGet(host, path, extra,
                 ZonedDateTime.now(ZoneOffset.UTC), "auto", accessKey, secretKey);
         HttpRequest.Builder request = HttpRequest.newBuilder(URI.create("https://" + host + AwsV4Signer.encodePath(path)))
                 .timeout(Duration.ofSeconds(30))
@@ -46,13 +61,7 @@ public class R2RangeSource implements RangeSource {
                 HttpResponse<byte[]> response = http.send(request.build(), HttpResponse.BodyHandlers.ofByteArray());
                 int status = response.statusCode();
                 if (status == 206 || status == 200) {
-                    byte[] body = response.body();
-                    if (status == 200 && (offset > 0 || body.length > length)) {
-                        // The store ignored the range; keep the part we asked for.
-                        int from = (int) Math.min(offset, body.length);
-                        return java.util.Arrays.copyOfRange(body, from, Math.min(body.length, from + length));
-                    }
-                    return body;
+                    return response.body();
                 }
                 if (status == 404) {
                     throw new FileNotFoundException(key);

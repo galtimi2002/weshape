@@ -4,16 +4,17 @@ import java.util.List;
 
 /**
  * The wind map layers and how their colours are drawn. Scales are fixed, so the same
- * colour means the same wind everywhere and on every visit.
+ * colour means the same wind everywhere and on every visit; all three share one blue
+ * scale. tool/gwa_render_tiles.py draws the stored tiles with the same rules.
  */
 public enum WindLayer {
 
     /** Mean wind speed at 100 m. */
     SPEED("speed", "m/s", 3, 9, false, 100, List.of("#E3EEF8", "#7FB2E0", "#2F6DB0", "#163E78")),
     /** Mean wind power density at 100 m. */
-    POWER("power", "W/m²", 50, 800, true, 100, List.of("#EEE8F6", "#B39BDA", "#7552B5", "#46297F")),
+    POWER("power", "W/m²", 50, 800, true, 100, List.of("#E3EEF8", "#7FB2E0", "#2F6DB0", "#163E78")),
     /** Mean wind speed at a chosen height (10, 50, 100, 150 or 200 m). */
-    HEIGHT("height", "m/s", 2, 10, false, 0, List.of("#E0F2F5", "#7CC5D6", "#2B8BA8", "#145A73"));
+    HEIGHT("height", "m/s", 2, 10, false, 0, List.of("#E3EEF8", "#7FB2E0", "#2F6DB0", "#163E78"));
 
     /** Heights with a speed layer; 150 m is worked out from 100 and 200 m. */
     public static final List<Integer> HEIGHTS = List.of(10, 50, 100, 150, 200);

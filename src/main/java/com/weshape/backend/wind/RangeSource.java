@@ -8,6 +8,9 @@ public interface RangeSource {
     /** Bytes [offset, offset + length) of the file at key. Throws FileNotFoundException when there is no such file. */
     byte[] read(String key, long offset, int length) throws IOException;
 
+    /** The whole file at key. Throws FileNotFoundException when there is no such file. */
+    byte[] readAll(String key) throws IOException;
+
     /** Where the files come from, for logs. */
     String describe();
 }

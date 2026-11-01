@@ -10,7 +10,11 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.io.FileNotFoundException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import javax.imageio.ImageIO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,9 +35,19 @@ public class WindData {
     public static final String SOURCE = "Global Wind Atlas 4.0 (DTU, World Bank Group)";
     static final int TILE = 256;
     private static final long RETRY_AFTER_MS = 5 * 60 * 1000;
+    /** Zoom levels the "Build wind map tiles" workflow draws in advance. */
+    public static final int STORED_MAX_ZOOM = 8;
+    private static final List<String> FILES = List.of("ws100", "ws10", "ws50", "ws200", "pd100");
+    private static final List<String> LAYER_IDS =
+            List.of("speed", "power", "height-10", "height-50", "height-100", "height-150", "height-200");
 
     private final RangeSource source;
     private final String prefix;
+    private final String tilesPrefix;
+    private final ExecutorService readers = Executors.newVirtualThreadPerTaskExecutor();
+    /** Per layer: when its stored tiles were last checked for, and whether they exist. */
+    private final Map<String, Long> storedCheckedAt = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> stored = new ConcurrentHashMap<>();
     private final Map<String, CogFile> files = new ConcurrentHashMap<>();
     private final Map<String, Long> failedAt = new ConcurrentHashMap<>();
     private final ByteCache tiles = new ByteCache(48L * 1024 * 1024);
@@ -47,15 +61,25 @@ public class WindData {
             @Value("${weshape.wind.r2.access-key-id:}") String accessKey,
             @Value("${weshape.wind.r2.secret-access-key:}") String secretKey,
             @Value("${weshape.wind.local-dir:}") String localDir,
-            @Value("${weshape.wind.prefix:wind/gwa/}") String prefix) {
-        this(chooseSource(accountId, bucket, accessKey, secretKey, localDir), prefix);
+            @Value("${weshape.wind.prefix:wind/gwa/}") String prefix,
+            @Value("${weshape.wind.tiles-prefix:wind/tiles/}") String tilesPrefix) {
+        this(chooseSource(accountId, bucket, accessKey, secretKey, localDir), prefix, tilesPrefix);
     }
 
     public WindData(RangeSource source, String prefix) {
+        this(source, prefix, "wind/tiles/");
+    }
+
+    public WindData(RangeSource source, String prefix, String tilesPrefix) {
         this.source = source;
         this.prefix = prefix;
+        this.tilesPrefix = tilesPrefix;
         this.emptyPng = png(new BufferedImage(TILE, TILE, BufferedImage.TYPE_INT_ARGB));
         log.info(source == null ? "Wind map: no data source configured" : "Wind map: data from " + source.describe());
+        if (source != null) {
+            // Read the file headers now, so the first click on the map does not wait for them.
+            Thread.ofVirtual().name("wind-warm-up").start(() -> FILES.forEach(this::file));
+        }
     }
 
     private static RangeSource chooseSource(String accountId, String bucket, String accessKey, String secretKey,
@@ -83,6 +107,26 @@ public class WindData {
         int row = (int) Math.floor((level.originY() - lat) / level.pixelY());
         if (row < 0 || row >= level.height() || col < 0 || col >= level.width()) {
             throw new NoWindDataException(lat, lon);
+        }
+        // Fetch the cell's block from every file at once instead of one after another.
+        List<Future<?>> reads = new ArrayList<>();
+        for (String name : FILES) {
+            if (file(name) != null) {
+                reads.add(readers.submit(() -> code(name, 0, col, row)));
+            }
+        }
+        for (Future<?> read : reads) {
+            try {
+                read.get();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new WindUnavailableException();
+            } catch (java.util.concurrent.ExecutionException e) {
+                if (e.getCause() instanceof RuntimeException r) {
+                    throw r;
+                }
+                throw new WindUnavailableException();
+            }
         }
         int c100 = code("ws100", 0, col, row);
         if (c100 == WindEncoding.NODATA) {
@@ -121,14 +165,60 @@ public class WindData {
 
     /** A 256 px PNG map tile (Web Mercator z/x/y) of a layer: "speed", "power" or "height-10" ... "height-200". */
     public byte[] tile(String layerId, int z, int x, int y) {
+        if (!LAYER_IDS.contains(layerId)) {
+            throw new IllegalArgumentException("layer " + layerId);
+        }
         String cacheKey = layerId + "/" + z + "/" + x + "/" + y;
         byte[] cached = images.get(cacheKey);
         if (cached != null) {
             return cached;
         }
-        byte[] png = render(layerId, z, x, y);
+        byte[] png = storedTile(layerId, z, x, y);
+        if (png == null) {
+            png = render(layerId, z, x, y);
+        }
         images.put(cacheKey, png);
         return png;
+    }
+
+    /**
+     * A tile drawn in advance by the "Build wind map tiles" workflow, or null when that
+     * layer has no stored tiles (then it is drawn here). Inside a stored layer a missing
+     * tile means no data there (open sea), so it is empty.
+     */
+    private byte[] storedTile(String layerId, int z, int x, int y) {
+        if (source == null || z > STORED_MAX_ZOOM || !hasStoredTiles(layerId)) {
+            return null;
+        }
+        try {
+            return source.readAll(tilesPrefix + layerId + "/" + z + "/" + x + "/" + y + ".png");
+        } catch (FileNotFoundException e) {
+            return emptyPng;
+        } catch (IOException e) {
+            log.warn("Wind map: stored tile {}/{}/{}/{} unreadable: {}", layerId, z, x, y, e.getMessage());
+            return null;
+        }
+    }
+
+    private boolean hasStoredTiles(String layerId) {
+        Long checked = storedCheckedAt.get(layerId);
+        Boolean known = stored.get(layerId);
+        if (known != null && (known || System.currentTimeMillis() - checked < RETRY_AFTER_MS)) {
+            return known;
+        }
+        boolean exists;
+        try {
+            source.readAll(tilesPrefix + layerId + ".json");
+            exists = true;
+        } catch (IOException e) {
+            exists = false;
+        }
+        stored.put(layerId, exists);
+        storedCheckedAt.put(layerId, System.currentTimeMillis());
+        if (exists) {
+            log.info("Wind map: using stored tiles for {}", layerId);
+        }
+        return exists;
     }
 
     private byte[] render(String layerId, int z, int x, int y) {

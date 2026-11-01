@@ -68,6 +68,24 @@ class WindDataTest {
     }
 
     @Test
+    @DisplayName("tiles drawn in advance are handed out as they are; a missing one inside a stored layer is empty")
+    void storedTiles() throws Exception {
+        TestCogWriter.writeWorld(dir, true);
+        byte[] stored = {(byte) 0x89, 'P', 'N', 'G', 1, 2, 3};
+        Files.createDirectories(dir.resolve("wind/tiles/speed/3/4"));
+        Files.write(dir.resolve("wind/tiles/speed/3/4/2.png"), stored);
+        Files.writeString(dir.resolve("wind/tiles/speed.json"), "{\"layer\":\"speed\"}");
+        WindData wind = new WindData(new FileRangeSource(dir), "wind/gwa/");
+        assertThat(wind.tile("speed", 3, 4, 2)).isEqualTo(stored);
+        BufferedImage missing = ImageIO.read(new ByteArrayInputStream(wind.tile("speed", 3, 4, 3)));
+        assertThat(missing.getRGB(128, 128) >>> 24).isZero();
+        // No stored tiles for this layer: drawn on the server as before.
+        BufferedImage drawn = ImageIO.read(new ByteArrayInputStream(wind.tile("height-100", 0, 0, 0)));
+        assertThat(drawn.getRGB(px(23.59), py(46.77, 0)) >>> 24).isEqualTo(255);
+        assertThat(new FileRangeSource(dir).readAll("wind/tiles/speed.json")).isNotEmpty();
+    }
+
+    @Test
     @DisplayName("a missing power density file leaves the speeds working")
     void withoutPowerDensity() throws Exception {
         TestCogWriter.writeWorld(dir, true);
@@ -137,6 +155,8 @@ class WindDataTest {
     void colours() {
         assertThat(WindLayer.SPEED.argb(0)).isEqualTo(0xffE3EEF8);
         assertThat(WindLayer.SPEED.argb(50)).isEqualTo(0xff163E78);
+        assertThat(WindLayer.POWER.colors).isEqualTo(WindLayer.SPEED.colors); // one blue scale
+        assertThat(WindLayer.HEIGHT.colors).isEqualTo(WindLayer.SPEED.colors);
         assertThat(WindLayer.POWER.scale(50)).isZero();
         assertThat(WindLayer.POWER.scale(800)).isEqualTo(1.0);
         assertThat(WindLayer.POWER.scale(200)).isCloseTo(0.5, within(1e-9)); // halfway on a log scale

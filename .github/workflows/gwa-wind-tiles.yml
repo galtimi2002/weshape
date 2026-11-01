@@ -1,0 +1,93 @@
+name: Build wind map tiles
+
+# Draws the wind map tiles (zoom 0 to 8) once from the wind layers in R2, so the
+# backend hands out finished pictures instead of drawing each one when asked.
+# Run after "Build wind map data", from the Actions tab with "Run workflow".
+# The seven layers run side by side. Each layer's tiles are uploaded first and its
+# <layer>.json last; the backend switches to stored tiles once that file is there.
+#
+# Needs the repository secrets R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+# R2_SECRET_ACCESS_KEY and R2_BUCKET.
+
+on:
+  workflow_dispatch:
+    inputs:
+      layers:
+        description: "Layers (comma separated): speed, power, height-10, height-50, height-100, height-150, height-200"
+        default: "speed,power,height-10,height-50,height-100,height-150,height-200"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gwa-wind-tiles
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      layers: ${{ steps.list.outputs.layers }}
+    steps:
+      - id: list
+        run: echo "layers=$(echo '${{ inputs.layers }}' | tr -d ' ' | jq -Rc 'split(",") | map(select(length > 0))')" >> "$GITHUB_OUTPUT"
+
+  tiles:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        layer: ${{ fromJson(needs.plan.outputs.layers) }}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      BUCKET: ${{ secrets.R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GDAL and Pillow
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gdal-bin python3-gdal python3-numpy python3-pil > /dev/null
+          gdalinfo --version
+
+      - name: Fetch the wind layers it needs from R2
+        run: |
+          case "${{ matrix.layer }}" in
+            speed|height-100) files="ws100" ;;
+            power) files="pd100" ;;
+            height-10) files="ws10" ;;
+            height-50) files="ws50" ;;
+            height-200) files="ws200" ;;
+            height-150) files="ws100 ws200" ;;
+            *) echo "Unknown layer ${{ matrix.layer }}"; exit 1 ;;
+          esac
+          mkdir -p src
+          for f in $files; do
+            aws s3 cp "s3://$BUCKET/wind/gwa/$f.tif" "src/$f.tif" --endpoint-url "$ENDPOINT" --only-show-errors
+          done
+          ls -lh src
+
+      - name: Draw the tiles
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: python3 tool/gwa_render_tiles.py "${{ matrix.layer }}" src out 8
+
+      - name: Upload to R2
+        run: |
+          aws configure set default.s3.max_concurrent_requests 64
+          echo "$(find out/${{ matrix.layer }} -name '*.png' | wc -l) tiles, $(du -sh out/${{ matrix.layer }} | cut -f1)"
+          aws s3 sync "out/${{ matrix.layer }}" "s3://$BUCKET/wind/tiles/${{ matrix.layer }}" \
+            --endpoint-url "$ENDPOINT" --only-show-errors --content-type image/png \
+            --cache-control "public, max-age=604800"
+          # Last: the backend uses this layer's stored tiles once this file exists.
+          aws s3 cp "out/${{ matrix.layer }}.json" "s3://$BUCKET/wind/tiles/${{ matrix.layer }}.json" \
+            --endpoint-url "$ENDPOINT" --only-show-errors
+          {
+            echo "### ${{ matrix.layer }}"
+            echo "$(find out/${{ matrix.layer }} -name '*.png' | wc -l) tiles, $(du -sh out/${{ matrix.layer }} | cut -f1)"
+          } >> "$GITHUB_STEP_SUMMARY"

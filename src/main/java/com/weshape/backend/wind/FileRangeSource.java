@@ -31,6 +31,15 @@ public class FileRangeSource implements RangeSource {
     }
 
     @Override
+    public byte[] readAll(String key) throws IOException {
+        Path file = root.resolve(key);
+        if (!Files.isRegularFile(file)) {
+            throw new FileNotFoundException(file.toString());
+        }
+        return Files.readAllBytes(file);
+    }
+
+    @Override
     public String describe() {
         return "local folder " + root;
     }
