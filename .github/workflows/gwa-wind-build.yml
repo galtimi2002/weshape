@@ -1,0 +1,94 @@
+name: Build wind map data
+
+# Downloads the whole-world Global Wind Atlas layers (250 m), turns each into a
+# compact cloud-optimised GeoTIFF and uploads it to the Cloudflare R2 bucket the
+# backend reads from. Run from the Actions tab with "Run workflow".
+# Takes one to three hours; the five layers run side by side.
+#
+# Needs these repository secrets: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+# R2_SECRET_ACCESS_KEY, R2_BUCKET.
+
+on:
+  workflow_dispatch:
+    inputs:
+      layers:
+        description: "Layers to build (comma separated): ws10, ws50, ws100, ws200, pd100"
+        default: "ws10,ws50,ws100,ws200,pd100"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gwa-wind-build
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      layers: ${{ steps.list.outputs.layers }}
+    steps:
+      - id: list
+        run: echo "layers=$(echo '${{ inputs.layers }}' | tr -d ' ' | jq -Rc 'split(",") | map(select(length > 0))')" >> "$GITHUB_OUTPUT"
+
+  layer:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        layer: ${{ fromJson(needs.plan.outputs.layers) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make room on the runner
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Install GDAL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gdal-bin python3-gdal python3-numpy > /dev/null
+          gdalinfo --version
+
+      - name: Find the source file
+        id: source
+        run: |
+          case "${{ matrix.layer }}" in
+            ws10)  path=wind-speed/10 ;;
+            ws50)  path=wind-speed/50 ;;
+            ws100) path=wind-speed/100 ;;
+            ws200) path=wind-speed/200 ;;
+            pd100) path=power-density/100 ;;
+            *) echo "Unknown layer ${{ matrix.layer }}"; exit 1 ;;
+          esac
+          # GDAL follows the atlas' redirect to where the file is stored, and follows it
+          # again if a signed link runs out during a long conversion.
+          url="https://globalwindatlas.info/api/gis/global/$path"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          stored=$(curl -sSL -r 0-0 -o /dev/null -w '%{url_effective}' "$url")
+          echo "Stored at: ${stored%%\?*}"
+
+      - name: Convert
+        run: mkdir -p out && python3 tool/gwa_build_wind.py "${{ matrix.layer }}" "${{ steps.source.outputs.url }}" "out/${{ matrix.layer }}.tif"
+        env:
+          PYTHONUNBUFFERED: "1"
+      - name: Upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          aws configure set default.s3.multipart_chunksize 64MB
+          aws s3 cp "out/${{ matrix.layer }}.tif" "s3://$BUCKET/wind/gwa/${{ matrix.layer }}.tif" --endpoint-url "$ENDPOINT" --only-show-errors
+          aws s3 cp "out/${{ matrix.layer }}.tif.json" "s3://$BUCKET/wind/gwa/${{ matrix.layer }}.json" --endpoint-url "$ENDPOINT" --only-show-errors
+          {
+            echo "### ${{ matrix.layer }}"
+            echo '```json'
+            jq 'del(.sourceMetadata, .source)' "out/${{ matrix.layer }}.tif.json"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
