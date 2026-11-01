@@ -71,9 +71,9 @@ jobs:
           echo "Stored at: ${stored%%\?*}"
 
       - name: Download the source file
-        # Reading in small ranges over the network is fast from Amazon but very slow
-        # from DTU's own server (power density), so take the whole file first,
-        # over several connections at once.
+        # Reading in small ranges over the network is fast from Amazon, so the
+        # whole file is taken first, over several connections at once.
+        if: matrix.layer != 'pd100'
         run: |
           sudo apt-get install -y -qq aria2 > /dev/null
           mkdir -p src
@@ -82,11 +82,34 @@ jobs:
             -d src -o source.tif "${{ steps.source.outputs.url }}"
           ls -l src/source.tif
 
+      - name: Download the power density by country
+        # The world file sits on DTU's own server, which sends one connection at
+        # about 0.5 MB/s (8+ hours). The same data per country comes from the
+        # atlas' fast CDN, so take every country and lay them together.
+        if: matrix.layer == 'pd100'
+        run: |
+          mkdir -p src/countries
+          curl -sSL --retry 5 https://globalwindatlas.info/api/regions/countrySuggestions -o src/countries.json
+          jq -r '.[].iso_a3 | select(. != null)' src/countries.json | sort -u > src/codes.txt
+          echo "$(wc -l < src/codes.txt) countries"
+          cat src/codes.txt | xargs -P 16 -I{} sh -c \
+            'curl -sSL --retry 5 --retry-delay 5 --max-time 1800 -o src/countries/{}.tif "https://globalwindatlas.info/api/gis/country/{}/power-density/100" || echo "failed {}"'
+          # Keep only real GeoTIFFs (a country without a file answers with an error page).
+          for f in src/countries/*.tif; do gdalinfo "$f" > /dev/null 2>&1 || { echo "skipped $(basename $f)"; rm -f "$f"; }; done
+          echo "$(ls src/countries | wc -l) country files, $(du -sh src/countries | cut -f1)"
+          # One world mosaic on the same 250 m grid as the wind speed layers.
+          gdalbuildvrt -te -180.00125 -64.00125 179.99875 79.99875 -tr 0.0025 0.0025 \
+            -vrtnodata nan src/source.vrt src/countries/*.tif
+          gdalinfo src/countries/ROU.tif | grep -i -E "nodata|pixel size|origin" || true
+          gdalinfo src/source.vrt | head -20
+
       - name: Convert
         run: |
           mkdir -p out
-          python3 tool/gwa_build_wind.py "${{ matrix.layer }}" src/source.tif "out/${{ matrix.layer }}.tif"
-          rm -f src/source.tif
+          input=src/source.tif
+          [ -f src/source.vrt ] && input=src/source.vrt
+          python3 tool/gwa_build_wind.py "${{ matrix.layer }}" "$input" "out/${{ matrix.layer }}.tif"
+          rm -rf src
         env:
           PYTHONUNBUFFERED: "1"
           SOURCE_URL: ${{ steps.source.outputs.url }}
