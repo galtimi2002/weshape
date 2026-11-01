@@ -123,7 +123,11 @@ jobs:
           BUCKET: ${{ secrets.R2_BUCKET }}
         run: |
           aws configure set default.s3.multipart_chunksize 64MB
-          aws s3 cp "out/${{ matrix.layer }}.tif" "s3://$BUCKET/wind/gwa/${{ matrix.layer }}.tif" --endpoint-url "$ENDPOINT" --only-show-errors
+          for attempt in 1 2 3 4 5; do
+            aws s3 cp "out/${{ matrix.layer }}.tif" "s3://$BUCKET/wind/gwa/${{ matrix.layer }}.tif" --endpoint-url "$ENDPOINT" --only-show-errors && break
+            [ "$attempt" = 5 ] && exit 1
+            echo "upload failed, trying again ($attempt)"; sleep 20
+          done
           aws s3 cp "out/${{ matrix.layer }}.tif.json" "s3://$BUCKET/wind/gwa/${{ matrix.layer }}.json" --endpoint-url "$ENDPOINT" --only-show-errors
           {
             echo "### ${{ matrix.layer }}"

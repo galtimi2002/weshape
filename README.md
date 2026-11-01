@@ -84,10 +84,27 @@ It needs the repository secrets `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
 `R2_SECRET_ACCESS_KEY` and `R2_BUCKET`. One layer takes about 40 minutes;
 pass a subset (for example `ws100`) to rebuild only that.
 
+Power density's world file sits on a slow server (one connection, about
+0.5 MB/s), so that layer is put together from the atlas' per-country files
+(266 countries, same 250 m grid) instead.
+
+**Map tiles** are drawn in advance by the **"Build wind map tiles"** workflow
+(`.github/workflows/gwa-wind-tiles.yml`, run after the data build): zoom 0 to 8
+for the seven map layers (speed, power, height-10 … height-200), about 35,000
+tiles and 330–390 MB per layer. Each layer is two objects in R2,
+`wind/tiles/<layer>.tiles` (all tiles one after another) and
+`wind/tiles/<layer>.index` (where each one is), because uploading tens of
+thousands of small objects took longer than drawing them. The map enlarges
+zoom 8 beyond that. A layer without stored tiles is drawn on the server
+instead (slowly, a few seconds a tile on Render's free plan).
+
 The backend reads only what it needs with signed range requests: the file
-headers once, then the 512 × 512 blocks around a point or under a map tile
-(`wind` package, no AWS SDK). Map tiles are drawn on the server from the
-matching overview and cached in memory and by browsers for a week.
+headers once (read at startup), then the 512 × 512 blocks around a point, from
+all five files at once (`wind` package, no AWS SDK). Tiles are cached in memory
+and by browsers for a week.
+
+In R2 this takes about 5.9 GB for the data and 2.7 GB for the tiles, under
+the 10 GB free tier.
 Without bucket settings `/api/v1/wind/layers` reports `available: false` and
 the other wind endpoints answer 503. For development, `WIND_LOCAL_DIR` can
 point to a folder holding the same files (`wind/gwa/ws100.tif` ...).

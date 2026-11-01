@@ -86,9 +86,15 @@ jobs:
             --endpoint-url "$ENDPOINT" --only-show-errors || true
           aws s3 rm "s3://$BUCKET/wind/tiles/${{ matrix.layer }}.json" \
             --endpoint-url "$ENDPOINT" --only-show-errors || true
+          # The tile file first, the index last (the backend switches once the index is there).
+          # Large uploads go in parts and now and then one part goes missing: try again.
           for ext in tiles index; do
-            aws s3 cp "out/${{ matrix.layer }}.$ext" "s3://$BUCKET/wind/tiles/${{ matrix.layer }}.$ext" \
-              --endpoint-url "$ENDPOINT" --only-show-errors
+            for attempt in 1 2 3 4 5; do
+              aws s3 cp "out/${{ matrix.layer }}.$ext" "s3://$BUCKET/wind/tiles/${{ matrix.layer }}.$ext" \
+                --endpoint-url "$ENDPOINT" --only-show-errors && break
+              [ "$attempt" = 5 ] && exit 1
+              echo "upload of $ext failed, trying again ($attempt)"; sleep 20
+            done
           done
           {
             echo "### ${{ matrix.layer }}"
