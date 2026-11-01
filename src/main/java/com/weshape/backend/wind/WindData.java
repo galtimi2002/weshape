@@ -45,9 +45,9 @@ public class WindData {
     private final String prefix;
     private final String tilesPrefix;
     private final ExecutorService readers = Executors.newVirtualThreadPerTaskExecutor();
-    /** Per layer: when its stored tiles were last checked for, and whether they exist. */
+    /** Per layer: when its stored tiles were last looked for, and their index once found. */
     private final Map<String, Long> storedCheckedAt = new ConcurrentHashMap<>();
-    private final Map<String, Boolean> stored = new ConcurrentHashMap<>();
+    private final Map<String, TileIndex> stored = new ConcurrentHashMap<>();
     private final Map<String, CogFile> files = new ConcurrentHashMap<>();
     private final Map<String, Long> failedAt = new ConcurrentHashMap<>();
     private final ByteCache tiles = new ByteCache(48L * 1024 * 1024);
@@ -183,42 +183,50 @@ public class WindData {
 
     /**
      * A tile drawn in advance by the "Build wind map tiles" workflow, or null when that
-     * layer has no stored tiles (then it is drawn here). Inside a stored layer a missing
-     * tile means no data there (open sea), so it is empty.
+     * layer has no stored tiles (then it is drawn here). Inside a stored layer a tile
+     * that is not in the index has no data (open sea), so it is empty.
      */
     private byte[] storedTile(String layerId, int z, int x, int y) {
-        if (source == null || z > STORED_MAX_ZOOM || !hasStoredTiles(layerId)) {
+        if (source == null || z > STORED_MAX_ZOOM) {
             return null;
         }
-        try {
-            return source.readAll(tilesPrefix + layerId + "/" + z + "/" + x + "/" + y + ".png");
-        } catch (FileNotFoundException e) {
+        TileIndex index = storedIndex(layerId);
+        if (index == null) {
+            return null;
+        }
+        long[] at = index.find(z, x, y);
+        if (at == null) {
             return emptyPng;
+        }
+        try {
+            return source.read(tilesPrefix + layerId + ".tiles", at[0], (int) at[1]);
         } catch (IOException e) {
             log.warn("Wind map: stored tile {}/{}/{}/{} unreadable: {}", layerId, z, x, y, e.getMessage());
             return null;
         }
     }
 
-    private boolean hasStoredTiles(String layerId) {
+    private TileIndex storedIndex(String layerId) {
+        TileIndex index = stored.get(layerId);
+        if (index != null) {
+            return index;
+        }
         Long checked = storedCheckedAt.get(layerId);
-        Boolean known = stored.get(layerId);
-        if (known != null && (known || System.currentTimeMillis() - checked < RETRY_AFTER_MS)) {
-            return known;
+        if (checked != null && System.currentTimeMillis() - checked < RETRY_AFTER_MS) {
+            return null;
         }
-        boolean exists;
-        try {
-            source.readAll(tilesPrefix + layerId + ".json");
-            exists = true;
-        } catch (IOException e) {
-            exists = false;
-        }
-        stored.put(layerId, exists);
         storedCheckedAt.put(layerId, System.currentTimeMillis());
-        if (exists) {
-            log.info("Wind map: using stored tiles for {}", layerId);
+        try {
+            index = TileIndex.parse(source.readAll(tilesPrefix + layerId + ".index"));
+        } catch (FileNotFoundException e) {
+            return null;
+        } catch (IOException e) {
+            log.warn("Wind map: tile index for {} unreadable: {}", layerId, e.getMessage());
+            return null;
         }
-        return exists;
+        stored.put(layerId, index);
+        log.info("Wind map: using {} stored tiles for {}", index.size(), layerId);
+        return index;
     }
 
     private byte[] render(String layerId, int z, int x, int y) {

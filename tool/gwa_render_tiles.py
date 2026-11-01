@@ -4,15 +4,24 @@ Usage: python3 tool/gwa_render_tiles.py <layer> <folder with ws10/ws50/ws100/ws2
 
   layer: speed, power, height-10, height-50, height-100, height-150, height-200
 
-Writes <out>/<layer>/<z>/<x>/<y>.png (256 px, Web Mercator) for zoom 0 to max zoom
-(default 8), only where there is data. Colours and sampling match the backend's
+Writes two files per layer (zoom 0 to max zoom, default 8, only tiles with data):
+
+  <out>/<layer>.tiles  every tile (256 px PNG, Web Mercator), one after another
+  <out>/<layer>.index  where each one is: "WSTI", version 1, count (int32), then per
+                       tile, sorted by key: key = z << 48 | x << 24 | y (int64),
+                       offset (int64), length (int32); all big-endian
+
+so the backend loads the small index once and fetches any tile with one range
+read (one upload per layer instead of tens of thousands of small files). Colours and sampling match the backend's
 WindData / WindLayer exactly: the same overview level per zoom, the cell under each
 pixel centre, the same fixed colour scales. Tiles are 8-bit palette PNGs: the
 palette maps the stored byte to its colour, 255 (no data) is transparent.
 """
+import io
 import json
 import math
 import os
+import struct
 import sys
 import time
 
@@ -88,6 +97,9 @@ def main(layer, src, out, max_zoom=8):
     pal = palette(kind)
     written = 0
     started = time.time()
+    os.makedirs(out, exist_ok=True)
+    pack = open(os.path.join(out, layer + ".tiles"), "wb")
+    index = []
     for z in range(max_zoom + 1):
         n = 2 ** z
         li = ref.level_for(z)
@@ -126,12 +138,20 @@ def main(layer, src, out, max_zoom=8):
                     continue
                 img = Image.fromarray(np.ascontiguousarray(tile), mode="P")
                 img.putpalette(pal)
-                d = os.path.join(out, layer, str(z), str(tx))
-                os.makedirs(d, exist_ok=True)
-                img.save(os.path.join(d, "%d.png" % ty), optimize=True, transparency=NODATA)
+                buf = io.BytesIO()
+                img.save(buf, format="PNG", optimize=True, transparency=NODATA)
+                data = buf.getvalue()
+                index.append(((z << 48) | (tx << 24) | ty, pack.tell(), len(data)))
+                pack.write(data)
                 count_z += 1
         written += count_z
         print(f"{layer} z{z}: {count_z} tiles (level {li}), {(time.time() - started) / 60:.1f} min", flush=True)
+    pack.close()
+    index.sort()
+    with open(os.path.join(out, layer + ".index"), "wb") as f:
+        f.write(b"WSTI" + struct.pack(">ii", 1, len(index)))
+        for key, offset, length in index:
+            f.write(struct.pack(">qqi", key, offset, length))
     with open(os.path.join(out, layer + ".json"), "w") as f:
         json.dump({"layer": layer, "maxZoom": max_zoom, "tiles": written,
                    "built": time.strftime("%Y-%m-%d")}, f)

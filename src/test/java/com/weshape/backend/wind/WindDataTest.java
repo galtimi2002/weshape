@@ -68,21 +68,35 @@ class WindDataTest {
     }
 
     @Test
-    @DisplayName("tiles drawn in advance are handed out as they are; a missing one inside a stored layer is empty")
+    @DisplayName("tiles drawn in advance are read from the layer's tile file; one not in its index is empty")
     void storedTiles() throws Exception {
         TestCogWriter.writeWorld(dir, true);
-        byte[] stored = {(byte) 0x89, 'P', 'N', 'G', 1, 2, 3};
-        Files.createDirectories(dir.resolve("wind/tiles/speed/3/4"));
-        Files.write(dir.resolve("wind/tiles/speed/3/4/2.png"), stored);
-        Files.writeString(dir.resolve("wind/tiles/speed.json"), "{\"layer\":\"speed\"}");
+        byte[] first = {(byte) 0x89, 'P', 'N', 'G', 1, 2, 3};
+        byte[] second = {(byte) 0x89, 'P', 'N', 'G', 9};
+        Files.createDirectories(dir.resolve("wind/tiles"));
+        Files.write(dir.resolve("wind/tiles/speed.tiles"), concat(first, second));
+        // Written the way tool/gwa_render_tiles.py writes it: sorted keys, big-endian.
+        java.nio.ByteBuffer index = java.nio.ByteBuffer.allocate(12 + 2 * 20);
+        index.put("WSTI".getBytes()).putInt(1).putInt(2);
+        index.putLong(TileIndex.key(3, 4, 2)).putLong(0).putInt(first.length);
+        index.putLong(TileIndex.key(5, 17, 11)).putLong(first.length).putInt(second.length);
+        Files.write(dir.resolve("wind/tiles/speed.index"), index.array());
+
         WindData wind = new WindData(new FileRangeSource(dir), "wind/gwa/");
-        assertThat(wind.tile("speed", 3, 4, 2)).isEqualTo(stored);
+        assertThat(wind.tile("speed", 3, 4, 2)).isEqualTo(first);
+        assertThat(wind.tile("speed", 5, 17, 11)).isEqualTo(second);
         BufferedImage missing = ImageIO.read(new ByteArrayInputStream(wind.tile("speed", 3, 4, 3)));
         assertThat(missing.getRGB(128, 128) >>> 24).isZero();
         // No stored tiles for this layer: drawn on the server as before.
         BufferedImage drawn = ImageIO.read(new ByteArrayInputStream(wind.tile("height-100", 0, 0, 0)));
         assertThat(drawn.getRGB(px(23.59), py(46.77, 0)) >>> 24).isEqualTo(255);
-        assertThat(new FileRangeSource(dir).readAll("wind/tiles/speed.json")).isNotEmpty();
+        assertThatThrownBy(() -> TileIndex.parse(new byte[] {1, 2, 3})).isInstanceOf(java.io.IOException.class);
+    }
+
+    private static byte[] concat(byte[] a, byte[] b) {
+        byte[] out = java.util.Arrays.copyOf(a, a.length + b.length);
+        System.arraycopy(b, 0, out, a.length, b.length);
+        return out;
     }
 
     @Test

@@ -3,8 +3,9 @@ name: Build wind map tiles
 # Draws the wind map tiles (zoom 0 to 8) once from the wind layers in R2, so the
 # backend hands out finished pictures instead of drawing each one when asked.
 # Run after "Build wind map data", from the Actions tab with "Run workflow".
-# The seven layers run side by side. Each layer's tiles are uploaded first and its
-# <layer>.json last; the backend switches to stored tiles once that file is there.
+# The seven layers run side by side. Each layer becomes two files in R2:
+# wind/tiles/<layer>.tiles (all tiles) and wind/tiles/<layer>.index (where each is);
+# the index goes up last, and the backend switches to stored tiles once it is there.
 #
 # Needs the repository secrets R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
 # R2_SECRET_ACCESS_KEY and R2_BUCKET.
@@ -79,15 +80,21 @@ jobs:
 
       - name: Upload to R2
         run: |
-          aws configure set default.s3.max_concurrent_requests 64
-          echo "$(find out/${{ matrix.layer }} -name '*.png' | wc -l) tiles, $(du -sh out/${{ matrix.layer }} | cut -f1)"
-          aws s3 sync "out/${{ matrix.layer }}" "s3://$BUCKET/wind/tiles/${{ matrix.layer }}" \
-            --endpoint-url "$ENDPOINT" --only-show-errors --content-type image/png \
-            --cache-control "public, max-age=604800"
-          # Last: the backend uses this layer's stored tiles once this file exists.
-          aws s3 cp "out/${{ matrix.layer }}.json" "s3://$BUCKET/wind/tiles/${{ matrix.layer }}.json" \
-            --endpoint-url "$ENDPOINT" --only-show-errors
+          ls -lh out
+          # Tiles from the first version (one object per tile) are no longer used.
+          aws s3 rm "s3://$BUCKET/wind/tiles/${{ matrix.layer }}/" --recursive \
+            --endpoint-url "$ENDPOINT" --only-show-errors || true
+          aws s3 rm "s3://$BUCKET/wind/tiles/${{ matrix.layer }}.json" \
+            --endpoint-url "$ENDPOINT" --only-show-errors || true
+          for ext in tiles index; do
+            aws s3 cp "out/${{ matrix.layer }}.$ext" "s3://$BUCKET/wind/tiles/${{ matrix.layer }}.$ext" \
+              --endpoint-url "$ENDPOINT" --only-show-errors
+          done
           {
             echo "### ${{ matrix.layer }}"
-            echo "$(find out/${{ matrix.layer }} -name '*.png' | wc -l) tiles, $(du -sh out/${{ matrix.layer }} | cut -f1)"
+            echo '```'
+            ls -lh out
+            cat "out/${{ matrix.layer }}.json"
+            echo
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
