@@ -63,8 +63,20 @@ class WindDataTest {
         assertThat(p.speeds().get(3).speed()).isCloseTo(expected150, within(0.051));
         assertThat(p.speeds().get(0).speed()).isLessThan(p.speeds().get(4).speed());
         double speed = code / 10.0;
-        assertThat(p.powerDensity100()).isCloseTo(0.6 * speed * speed * speed, within(0.6 * speed * speed * speed * 0.04 + 1));
+        assertThat(p.powerDensity100().doubleValue()).isCloseTo(0.6 * speed * speed * speed, within(0.6 * speed * speed * speed * 0.04 + 1));
         assertThat(p.source()).contains("Global Wind Atlas");
+    }
+
+    @Test
+    @DisplayName("a missing power density file leaves the speeds working")
+    void withoutPowerDensity() throws Exception {
+        TestCogWriter.writeWorld(dir, true);
+        Files.delete(dir.resolve("wind/gwa/pd100.tif"));
+        WindData wind = new WindData(new FileRangeSource(dir), "wind/gwa/");
+        WindPoint p = wind.point(46.77, 23.59);
+        assertThat(p.speeds()).hasSize(5);
+        assertThat(p.powerDensity100()).isNull();
+        assertThatThrownBy(() -> wind.tile("power", 0, 0, 0)).isInstanceOf(WindData.WindUnavailableException.class);
     }
 
     @Test
