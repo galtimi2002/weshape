@@ -64,17 +64,33 @@ jobs:
             pd100) path=power-density/100 ;;
             *) echo "Unknown layer ${{ matrix.layer }}"; exit 1 ;;
           esac
-          # GDAL follows the atlas' redirect to where the file is stored, and follows it
-          # again if a signed link runs out during a long conversion.
+          # aria2 follows the atlas' redirect to where the file is stored.
           url="https://globalwindatlas.info/api/gis/global/$path"
           echo "url=$url" >> "$GITHUB_OUTPUT"
           stored=$(curl -sSL -r 0-0 -o /dev/null -w '%{url_effective}' "$url")
           echo "Stored at: ${stored%%\?*}"
 
+      - name: Download the source file
+        # Reading in small ranges over the network is fast from Amazon but very slow
+        # from DTU's own server (power density), so take the whole file first,
+        # over several connections at once.
+        run: |
+          sudo apt-get install -y -qq aria2 > /dev/null
+          mkdir -p src
+          aria2c --quiet=false --summary-interval=60 --console-log-level=warn \
+            -x 16 -s 16 -k 64M --max-tries=10 --retry-wait=10 --file-allocation=none \
+            -d src -o source.tif "${{ steps.source.outputs.url }}"
+          ls -l src/source.tif
+
       - name: Convert
-        run: mkdir -p out && python3 tool/gwa_build_wind.py "${{ matrix.layer }}" "${{ steps.source.outputs.url }}" "out/${{ matrix.layer }}.tif"
+        run: |
+          mkdir -p out
+          python3 tool/gwa_build_wind.py "${{ matrix.layer }}" src/source.tif "out/${{ matrix.layer }}.tif"
+          rm -f src/source.tif
         env:
           PYTHONUNBUFFERED: "1"
+          SOURCE_URL: ${{ steps.source.outputs.url }}
+
       - name: Upload to R2
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}

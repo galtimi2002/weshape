@@ -1,6 +1,6 @@
 """Turns one whole-world Global Wind Atlas layer into the compact file the app reads.
 
-Usage: python3 tool/gwa_build_wind.py <layer> <source url> <output.tif>
+Usage: python3 tool/gwa_build_wind.py <layer> <source url or downloaded file> <output.tif>
 
   layer: ws10, ws50, ws100, ws200 (mean wind speed at that height) or pd100
          (mean wind power density at 100 m).
@@ -50,7 +50,8 @@ def encode(layer, values, valid):
 
 def main(layer, url, out_path):
     started = time.time()
-    source = gdal.Open("/vsicurl/" + url)
+    # A downloaded file is read from disk; an address is read in ranges over the network.
+    source = gdal.Open(("/vsicurl/" + url) if url.startswith("http") else url)
     band = source.GetRasterBand(1)
     width, height = source.RasterXSize, source.RasterYSize
     nodata = band.GetNoDataValue()
@@ -101,7 +102,7 @@ def main(layer, url, out_path):
 
     info = {
         "layer": layer,
-        "source": url,
+        "source": os.environ.get("SOURCE_URL", url),
         "width": width,
         "height": height,
         "geoTransform": list(gt),
