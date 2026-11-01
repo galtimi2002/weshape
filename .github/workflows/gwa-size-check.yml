@@ -1,0 +1,52 @@
+name: Wind data size check
+
+# One-off check before we build the wind map: how big are the Global Wind Atlas
+# files (250 m, whole world)? Nothing is downloaded, only the sizes are asked for.
+# Run it from the Actions tab with "Run workflow"; the table appears in the run summary.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sizes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Ask the Global Wind Atlas for file sizes
+        run: |
+          base="https://globalwindatlas.info/api/gis"
+          layers="wind-speed/10 wind-speed/50 wind-speed/100 wind-speed/150 wind-speed/200 power-density/100"
+          {
+            echo "## Global Wind Atlas file sizes"
+            echo
+            echo "| File | Size | Status | Stored at |"
+            echo "|---|---|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          total=0
+          for area in global country/ROU; do
+            for layer in $layers; do
+              url="$base/$area/$layer"
+              # Ask for the first byte only; the reply says how big the whole file is.
+              headers=$(curl -sSL -r 0-0 -D - -o /dev/null --max-time 60 "$url" || true)
+              status=$(echo "$headers" | grep -i '^HTTP/' | tail -1 | awk '{print $2}')
+              bytes=$(echo "$headers" | grep -i '^content-range:' | tail -1 | sed 's#.*/##' | tr -d '\r')
+              if [ -z "$bytes" ]; then
+                bytes=$(echo "$headers" | grep -i '^content-length:' | tail -1 | awk '{print $2}' | tr -d '\r')
+              fi
+              host=$(echo "$headers" | grep -i '^location:' | tail -1 | awk '{print $2}' | tr -d '\r' | sed -E 's#^(https?://[^/]+).*#\1#')
+              if [ -n "$bytes" ] && [ "$bytes" -gt 0 ] 2>/dev/null; then
+                size=$(numfmt --to=iec --suffix=B "$bytes")
+                [ "$area" = global ] && total=$((total + bytes))
+              else
+                size="?"
+              fi
+              echo "$area/$layer: $size (HTTP $status) $host"
+              echo "| $area/$layer | $size | $status | ${host:-same site} |" >> "$GITHUB_STEP_SUMMARY"
+            done
+          done
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "**All global files together: $(numfmt --to=iec --suffix=B $total)**" >> "$GITHUB_STEP_SUMMARY"
+          echo "Total global: $(numfmt --to=iec --suffix=B $total)"
