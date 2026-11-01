@@ -90,6 +90,16 @@ weshape:
       enabled: ${PVGIS_ENABLED:true}
       url: ${PVGIS_URL:https://re.jrc.ec.europa.eu/api/v5_3/PVcalc}
       timeout-seconds: 20
+  wind:
+    # The Global Wind Atlas layers (250 m) live in a private Cloudflare R2 bucket,
+    # built by the "Build wind map data" workflow. Use a read-only token here.
+    r2:
+      account-id: ${WIND_R2_ACCOUNT_ID:}
+      bucket: ${WIND_R2_BUCKET:weshape-wind}
+      access-key-id: ${WIND_R2_ACCESS_KEY_ID:}
+      secret-access-key: ${WIND_R2_SECRET_ACCESS_KEY:}
+    # Or a local folder with the same files (wind/gwa/ws100.tif ...), for development.
+    local-dir: ${WIND_LOCAL_DIR:}
 
 logging:
   level:

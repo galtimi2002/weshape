@@ -58,6 +58,8 @@ public class SecurityConfig {
                                     // Map pictures and their legend: the same for everyone, no personal data.
                                     "/api/v1/solar/layers",
                                     "/api/v1/solar/layers/**",
+                                    "/api/v1/wind/layers",
+                                    "/api/v1/wind/tiles/**",
                                     // Spring forwards failures here; keeping it open lets the
                                     // real status (400, 403, 404) reach the client instead of a 401.
                                     "/error",

@@ -73,6 +73,12 @@
             <version>${firebase.admin.version}</version>
         </dependency>
 
+        <!-- ZSTD decompression for the wind map tiles (pure Java, no native code) -->
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>aircompressor</artifactId>
+            <version>0.27</version>
+        </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

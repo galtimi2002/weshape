@@ -31,6 +31,9 @@ salted and hashed; the backend only ever receives signed ID tokens.
 | GET | `/api/v1/solar/point?lat=46.77&lon=23.59` | token | irradiation (GTI), PV output (PVOUT), optimum tilt (OPTA), monthly figures, from PVGIS; 404 over the sea |
 | GET | `/api/v1/solar/layers` | public | map layers: bounds, units, colour scales |
 | GET | `/api/v1/solar/layers/{gti,pvout,opta}.png` | public | one layer as a picture to lay over the map |
+| GET | `/api/v1/wind/point?lat=46.77&lon=23.59` | token | mean wind speed at 10, 50, 100, 150, 200 m and power density at 100 m (Global Wind Atlas, 250 m); 404 over open sea |
+| GET | `/api/v1/wind/layers` | public | wind map layers: units, colour scales, tile addresses, attribution |
+| GET | `/api/v1/wind/tiles/{speed,power,height-10…height-200}/{z}/{x}/{y}.png` | public | map tiles (Web Mercator, 256 px) |
 
 Leaving `preferredLanguage` out of the profile call sets it from the country
 (HU → hu, AT → de, BR → pt, anything unmapped → en).
@@ -63,6 +66,31 @@ locally from scratch, delete `target/pvgis-grid.partial.csv` first.
 
 If PVGIS cannot be reached, a place gets its values from the grid instead.
 Set `PVGIS_ENABLED=false` to never call PVGIS (the tests do this).
+
+## Wind data
+
+From the [Global Wind Atlas](https://globalwindatlas.info) 4.0 (DTU and the
+World Bank Group, CC BY 4.0), at 250 m for the whole world: mean wind speed at
+10, 50, 100 and 200 m and mean power density at 100 m. 150 m is worked out
+from 100 and 200 m (power law, 0.6 % mean error against the atlas).
+
+The world files are 13–15 GB each, too big for the repository or the server.
+The **"Build wind map data"** workflow (`.github/workflows/gwa-wind-build.yml`,
+run by hand from the Actions tab) reads them from the atlas, stores each value
+in one byte (speed in 0.1 m/s, power density on a log scale) as a
+cloud-optimised GeoTIFF with overviews (about 1 GB per layer), and uploads them
+to the private Cloudflare R2 bucket `weshape-wind` under `wind/gwa/`.
+It needs the repository secrets `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
+`R2_SECRET_ACCESS_KEY` and `R2_BUCKET`. One layer takes about 40 minutes;
+pass a subset (for example `ws100`) to rebuild only that.
+
+The backend reads only what it needs with signed range requests: the file
+headers once, then the 512 × 512 blocks around a point or under a map tile
+(`wind` package, no AWS SDK). Map tiles are drawn on the server from the
+matching overview and cached in memory and by browsers for a week.
+Without bucket settings `/api/v1/wind/layers` reports `available: false` and
+the other wind endpoints answer 503. For development, `WIND_LOCAL_DIR` can
+point to a folder holding the same files (`wind/gwa/ws100.tif` ...).
 
 ## Run locally
 
@@ -102,11 +130,17 @@ and account linking by verified email.
 - `FIREBASE_CREDENTIALS_BASE64`: the service-account JSON, base64 encoded:
   `[Convert]::ToBase64String([IO.File]::ReadAllBytes("serviceAccount.json"))`
 - `CORS_ALLOWED_ORIGINS`: the web app's address, e.g. `https://weshape-app.onrender.com`
+- `WIND_R2_ACCOUNT_ID`, `WIND_R2_ACCESS_KEY_ID`, `WIND_R2_SECRET_ACCESS_KEY`
+  (and `WIND_R2_BUCKET` if not `weshape-wind`): a **read-only** R2 token for
+  the wind map, separate from the upload token GitHub uses.
 
 ## Before launch
 
 - **Data disclaimer and attribution**: see "Before launch" in the
   weshape-app README (PVGIS credit, terms of service, legal check).
+- **Wind attribution**: the Global Wind Atlas licence (CC BY 4.0) needs the
+  credit shown wherever the wind map or its numbers appear (the app shows it
+  in the map attribution).
 - **PVGIS is a free public service** with no guaranteed capacity (at most 30
   requests a second per address). Answers are cached in memory; if usage
   grows, keep a persistent cache or ask the PVGIS team (JRC-PVGIS@ec.europa.eu).
