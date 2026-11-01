@@ -91,6 +91,9 @@ public class WindData {
         Map<Integer, Double> stored = new HashMap<>();
         stored.put(100, WindEncoding.speed(c100));
         for (int h : new int[] {10, 50, 200}) {
+            if (file("ws" + h) == null) {
+                continue;
+            }
             int c = code("ws" + h, 0, col, row);
             if (c != WindEncoding.NODATA) {
                 stored.put(h, WindEncoding.speed(c));
@@ -105,8 +108,12 @@ public class WindData {
                 speeds.add(new WindPoint.Speed(h, Math.round(v * 10) / 10.0));
             }
         }
-        int cpd = code("pd100", 0, col, row);
-        double pd = cpd == WindEncoding.NODATA ? Double.NaN : Math.round(WindEncoding.powerDensity(cpd));
+        // Power density is optional: the point still has its speeds while that file is missing.
+        double pd = Double.NaN;
+        if (file("pd100") != null) {
+            int cpd = code("pd100", 0, col, row);
+            pd = cpd == WindEncoding.NODATA ? Double.NaN : Math.round(WindEncoding.powerDensity(cpd));
+        }
         return new WindPoint(lat, lon, List.copyOf(speeds), stored.get(100), pd, SOURCE);
     }
 
