@@ -200,6 +200,16 @@ https://doi.org/10.7910/DVN/SWPENT and upload it to the bucket as
 The geothermal and biomass data are read through `MapStore`, which reopens
 the files by itself when a rebuild replaced them while the backend runs.
 
+## Keeping the data current
+
+The workflow "Watch map data sources" (`.github/workflows/data-watch.yml`, `tool/data_watch.py`)
+runs on the 3rd of every month and checks ESA CCI Biomass, MapSPAM, the Global Heat Flow
+Database, SoilTemp and RiverATLAS for newer releases than the ones recorded in R2
+(`watch/sources.json`). When one has something new, the run fails (GitHub e-mails the failure)
+and its summary says which build workflow to run. It keeps failing monthly until it is run by
+hand with "acknowledge" ticked. MapSPAM is the only source that needs a manual download (a
+guestbook form); the others are fetched by their build workflows.
+
 ## Run locally
 
 ```bash

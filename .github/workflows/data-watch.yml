@@ -1,0 +1,51 @@
+name: Watch map data sources
+
+# Once a month: checks whether the sources of the map data (ESA CCI Biomass, MapSPAM, the Global
+# Heat Flow Database, SoilTemp, RiverATLAS) have published something newer than what the maps
+# were built from. If so, the run fails, GitHub e-mails you, and the run summary says what is new
+# and which build workflow to run. It keeps failing every month until you run it by hand with
+# "acknowledge" ticked. See tool/data_watch.py.
+#
+# The last acknowledged state is kept in R2 as watch/sources.json.
+# Needs the repository secrets R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET.
+
+on:
+  schedule:
+    - cron: "17 6 3 * *"   # the 3rd of every month, 06:17 UTC
+  workflow_dispatch:
+    inputs:
+      acknowledge:
+        description: "I have seen the new releases: remember the current state"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      BUCKET: ${{ secrets.R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the sources
+        run: |
+          aws s3 cp "s3://$BUCKET/watch/sources.json" sources.json \
+            --endpoint-url "$ENDPOINT" --only-show-errors || echo "no saved state yet: this run records it"
+          set +e
+          python3 tool/data_watch.py sources.json ${{ inputs.acknowledge && '--acknowledge' || '' }}
+          result=$?
+          set -e
+          if [ "$result" = 0 ]; then
+            aws s3 cp sources.json "s3://$BUCKET/watch/sources.json" --endpoint-url "$ENDPOINT" --only-show-errors
+          else
+            echo "::error::A map data source has a new release, see the summary of this run."
+          fi
+          exit $result
