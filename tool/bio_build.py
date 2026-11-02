@@ -11,7 +11,9 @@ Sources
                   sustainably as harvest residues (branches, tops) = AGB x FOREST_SHARE.
 
 On the 5 arc-minute grid:
-  density   available biomass, t/ha per year (crop + forest residues)
+  density   available biomass, t/ha per year (crop + forest residues), averaged over the land
+            within DENSITY_KM: SPAM spreads each district's crops over blocks of cells, which
+            per cell would show as squares
   crop      crop residues within 25 km, thousand t per year
   forest    forest residues within 25 km, thousand t per year
   energy    their heating value within 25 km, GWh per year
@@ -43,6 +45,7 @@ TILE = 256
 CELL = 1 / 12.0  # 5 arc-minutes
 W, H = 4320, 2160
 RADIUS_KM = 25.0
+DENSITY_KM = 20.0
 RESIDUE_SHARE = 0.40
 FOREST_SHARE = 0.002  # of above-ground biomass per year
 WOOD_MWH_PER_T = 5.1
@@ -145,19 +148,19 @@ def forest_rasters(agb_path):
 
 # ---------------------------------------------------------------- within 25 km
 
-def within_radius(grid):
-    """Sum of every cell within RADIUS_KM of each cell (the cells' centres)."""
+def within_radius(grid, radius_km=RADIUS_KM):
+    """Sum of every cell within radius_km of each cell (the cells' centres)."""
     out = np.zeros_like(grid)
     side = 6371.0 * math.radians(CELL)
     lat = 90 - (np.arange(H) + 0.5) * CELL
-    ky = int(RADIUS_KM // side)
+    ky = int(radius_km // side)
     for dy in range(-ky, ky + 1):
         shifted = np.roll(grid, dy, axis=0)
         if dy > 0:
             shifted[:dy] = 0
         elif dy < 0:
             shifted[dy:] = 0
-        rest = max(0.0, RADIUS_KM ** 2 - (dy * side) ** 2)
+        rest = max(0.0, radius_km ** 2 - (dy * side) ** 2)
         width = side * np.maximum(np.cos(np.radians(lat)), 0.05)
         kx = np.floor(np.sqrt(rest) / width).astype(int)  # per row
         for dx in range(0, int(kx.max()) + 1):
@@ -273,7 +276,8 @@ def main(spam, agb, out, max_zoom=7):
     area = cell_area_ha()
     # Land: where the biomass map has a value or crops grow; the sea stays empty.
     land = agb_land | (crop_t > 0)
-    density = (crop_t + forest_t) / area
+    land_ha = np.where(land, np.broadcast_to(area, land.shape), 0.0)
+    density = within_radius(crop_t + forest_t, DENSITY_KM) / np.maximum(within_radius(land_ha, DENSITY_KM), 1.0)
     crop_25 = within_radius(crop_t) / 1000.0
     forest_25 = within_radius(forest_t) / 1000.0
     energy_25 = within_radius(crop_mwh + forest_t * WOOD_MWH_PER_T) / 1000.0

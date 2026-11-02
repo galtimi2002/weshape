@@ -174,7 +174,8 @@ there, `/api/v1/geo/layers` reports `available: false`.
 Three layers, as asked for:
 
 - **Biomass availability density** (t/ha per year): crop and forest residues
-  that can be taken sustainably, here.
+  that can be taken sustainably, averaged over the land within 20 km (MapSPAM spreads each
+  district's crops over blocks of ~9 km cells, which cell by cell show as squares).
 - **Biomass resource potential** (thousand t per year): the same summed over a
   25 km collection radius, what a boiler or plant could draw on.
 - **Biomass energy potential** (GWh per year within 25 km): its heating value,
