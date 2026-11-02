@@ -35,8 +35,23 @@ public class HydroData {
     public static final double ECOLOGICAL_SHARE = 0.10;
     /** Turbine and generator efficiency used for the potential. Same as the builder. */
     public static final double EFFICIENCY = 0.80;
-    /** How far from a click a river still counts as "here". */
+    /** How far from a click a river still counts as "here", at least. */
     static final double SEARCH_KM = 2.0;
+    /** Zoomed out, a click this many screen pixels from a line still hits it. */
+    static final double SEARCH_PIXELS = 14;
+    /**
+     * Lines this many screen pixels further than the nearest one still count as "clicked"
+     * (a tributary touches the main river where it flows in); the biggest of them wins.
+     */
+    static final double TIE_PIXELS = 4;
+    /** And never further than this. */
+    static final double MAX_SEARCH_KM = 15.0;
+    /**
+     * Mean flow (m³/s) from which a reach shows on the map at each zoom, the same as the
+     * builder's MINZOOM (tool/hydro_build_rivers.py): {flow, zoom}.
+     */
+    private static final double[][] SHOWN_FROM = {
+            {2000, 0}, {500, 3}, {150, 4}, {50, 5}, {15, 6}, {5, 7}, {1.5, 8}, {0.5, 9}, {0, 10}};
     private static final long RETRY_AFTER_MS = 5 * 60 * 1000;
     private static final double EARTH_CIRCUMFERENCE_M = 40_075_016.686;
 
@@ -102,6 +117,15 @@ public class HydroData {
 
     /** The nearest river reach within {@value #SEARCH_KM} km of the place. */
     public HydroPoint point(double lat, double lon) {
+        return point(lat, lon, null);
+    }
+
+    /**
+     * The nearest river reach to the place among those the map shows at [mapZoom]
+     * (all of them when null), so a click on a big river is not taken by a small stream
+     * that is not drawn yet. Zoomed out, a click may land further from the line.
+     */
+    public HydroPoint point(double lat, double lon, Double mapZoom) {
         require();
         if (Math.abs(lat) > 85) {
             throw new NoHydroDataException(lat, lon);
@@ -112,7 +136,18 @@ public class HydroData {
         double latRad = Math.toRadians(lat);
         double gy = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n;
         double tileMeters = EARTH_CIRCUMFERENCE_M * Math.cos(latRad) / n;
-        double r = SEARCH_KM * 1000 / tileMeters;
+        double searchKm = SEARCH_KM;
+        double tieKm = 0;
+        double minFlow = 0;
+        if (mapZoom != null && mapZoom >= 0) {
+            double metersPerPixel = EARTH_CIRCUMFERENCE_M * Math.cos(latRad) / (512 * Math.pow(2, mapZoom));
+            searchKm = Math.min(MAX_SEARCH_KM, Math.max(SEARCH_KM, SEARCH_PIXELS * metersPerPixel / 1000));
+            tieKm = TIE_PIXELS * metersPerPixel / 1000;
+            minFlow = minFlowShownAt((int) Math.floor(mapZoom));
+        }
+        double r = searchKm * 1000 / tileMeters;
+        double tie = tieKm * 1000 / tileMeters;
+        java.util.List<Object[]> candidates = new java.util.ArrayList<>();
 
         double best = Double.MAX_VALUE;
         MvtReader.Line bestLine = null;
@@ -130,7 +165,13 @@ public class HydroData {
                 double px = (gx - tx) * layer.extent();
                 double py = (gy - ty) * layer.extent();
                 for (MvtReader.Line line : layer.lines()) {
+                    if (minFlow > 0 && value(line.values(), "qa") < minFlow) {
+                        continue; // not drawn at this zoom
+                    }
                     double d = distance(line, px, py) / layer.extent();
+                    if (d <= r) {
+                        candidates.add(new Object[] {d, line});
+                    }
                     if (d < best) {
                         best = d;
                         bestLine = line;
@@ -141,10 +182,40 @@ public class HydroData {
         if (bestLine == null || best > r) {
             throw new NoHydroDataException(lat, lon);
         }
+        // Near a confluence the main river and its tributary are both about as close: take the bigger.
+        for (Object[] c : candidates) {
+            double d = (double) c[0];
+            MvtReader.Line line = (MvtReader.Line) c[1];
+            if (d <= best + tie && value(line.values(), "qa") > value(bestLine.values(), "qa")) {
+                bestLine = line;
+            }
+        }
+        best = bestDistance(candidates, bestLine);
         var v = bestLine.values();
         double km = best * tileMeters / 1000;
         return new HydroPoint(lat, lon, round(km, 2), value(v, "p"), value(v, "q"), value(v, "qa"),
                 value(v, "qn"), value(v, "qx"), value(v, "h"), value(v, "l"), ECOLOGICAL_SHARE, EFFICIENCY, SOURCE);
+    }
+
+    private static double bestDistance(java.util.List<Object[]> candidates, MvtReader.Line line) {
+        double d = Double.MAX_VALUE;
+        for (Object[] c : candidates) {
+            if (c[1] == line) {
+                d = Math.min(d, (double) c[0]);
+            }
+        }
+        return d;
+    }
+
+    /** The smallest mean flow the map draws at this zoom. */
+    static double minFlowShownAt(int zoom) {
+        double flow = SHOWN_FROM[0][0];
+        for (double[] step : SHOWN_FROM) {
+            if (step[1] <= zoom) {
+                flow = step[0]; // the steps go from big rivers to small ones
+            }
+        }
+        return flow;
     }
 
     private MvtReader.Layer decode(int z, int x, int y) {

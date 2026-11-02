@@ -68,6 +68,40 @@ class HydroDataTest {
     }
 
     @Test
+    @DisplayName("zoomed out, a click takes the river the map shows, not a small stream that is not drawn yet")
+    void visibleRiver() throws Exception {
+        // A big river and, closer to the click, a small stream (shown from zoom 10 only).
+        TestMvtWriter.write(dir, List.of(
+                new TestMvtWriter.River(new double[][] {{47.20, 7.70}, {47.20, 7.76}}, Map.of("qa", 300.0, "h", 1.0)),
+                new TestMvtWriter.River(new double[][] {{47.205, 7.70}, {47.205, 7.76}}, Map.of("qa", 0.14, "h", 2.5))));
+        HydroData hydro = new HydroData(new FileRangeSource(dir), "hydro/tiles/");
+        assertThat(hydro.point(47.206, 7.73).meanFlow()).isEqualTo(0.14);
+        assertThat(hydro.point(47.206, 7.73, 12.0).meanFlow()).isEqualTo(0.14);
+        assertThat(hydro.point(47.206, 7.73, 8.5).meanFlow()).isEqualTo(300.0);
+        // At zoom 6 a click 5 km from the river still finds it.
+        assertThat(hydro.point(47.245, 7.73, 6.0).meanFlow()).isEqualTo(300.0);
+        assertThatThrownBy(() -> hydro.point(47.245, 7.73)).isInstanceOf(NoHydroDataException.class);
+        assertThat(HydroData.minFlowShownAt(10)).isZero();
+        assertThat(HydroData.minFlowShownAt(7)).isEqualTo(5.0);
+        assertThat(HydroData.minFlowShownAt(1)).isEqualTo(2000.0);
+    }
+
+    @Test
+    @DisplayName("where a tributary flows in, a click on the main river gives the main river")
+    void confluence() throws Exception {
+        // The tributary (shown from zoom 9) runs 111 m from the main river, the click lies between.
+        TestMvtWriter.write(dir, List.of(
+                new TestMvtWriter.River(new double[][] {{47.20, 7.70}, {47.20, 7.76}}, Map.of("qa", 1950.0, "h", 0.0)),
+                new TestMvtWriter.River(new double[][] {{47.201, 7.70}, {47.201, 7.76}}, Map.of("qa", 0.6, "h", 16.0))));
+        HydroData hydro = new HydroData(new FileRangeSource(dir), "hydro/tiles/");
+        HydroPoint zoomedOut = hydro.point(47.2008, 7.73, 9.0);
+        assertThat(zoomedOut.meanFlow()).isEqualTo(1950.0);
+        assertThat(zoomedOut.distanceKm()).isBetween(0.07, 0.11);
+        // Close up the two lines are far apart on screen: the nearer one, as clicked.
+        assertThat(hydro.point(47.2008, 7.73, 15.0).meanFlow()).isEqualTo(0.6);
+    }
+
+    @Test
     @DisplayName("no river within reach is 404; no tiles at all is unavailable")
     void none() throws Exception {
         HydroData hydro = data();

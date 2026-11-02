@@ -85,10 +85,12 @@ public class HydroController {
     }
 
     @GetMapping("/point")
-    public HydroPoint point(@RequestParam double lat, @RequestParam double lon) {
+    public HydroPoint point(@RequestParam double lat, @RequestParam double lon,
+                            @RequestParam(required = false) Double zoom) {
         if (!(lat >= -90 && lat <= 90)) throw new ValidationException("lat", "Latitude must be between -90 and 90");
         if (!(lon >= -180 && lon <= 180)) throw new ValidationException("lon", "Longitude must be between -180 and 180");
-        return hydro.point(lat, lon);
+        if (zoom != null && !(zoom >= 0 && zoom <= 24)) throw new ValidationException("zoom", "Zoom must be between 0 and 24");
+        return hydro.point(lat, lon, zoom);
     }
 
     @ExceptionHandler(HydroData.HydroUnavailableException.class)
