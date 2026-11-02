@@ -37,6 +37,9 @@ salted and hashed; the backend only ever receives signed ID tokens.
 | GET | `/api/v1/hydro/point?lat=46.77&lon=23.59` | token | the nearest river reach within 2 km: estimated potential, available flow, driest/mean/wettest month flow, head (RiverATLAS); 404 when no river is near |
 | GET | `/api/v1/hydro/layers` | public | river map layers (potential, flow, head): tile property, units, colour scales, attribution |
 | GET | `/api/v1/hydro/tiles/{z}/{x}/{y}.pbf` | public | river vector tiles (zoom 0–10, gzip); 204 where there are no rivers |
+| GET | `/api/v1/geo/point?lat=46.77&lon=23.59` | token | ground temperature, heat flow and estimated temperature at 1, 2, 3, 5 km; 404 over the sea |
+| GET | `/api/v1/geo/layers` | public | geothermal map layers (ground, depth, heatflow): units, colour scales per depth, tile addresses, attribution |
+| GET | `/api/v1/geo/tiles/{ground,heatflow,depth-1…depth-5}/{z}/{x}/{y}.png` | public | map tiles (zoom 0–7) |
 
 Leaving `preferredLanguage` out of the profile call sets it from the country
 (HU → hu, AT → de, BR → pt, anything unmapped → en).
@@ -142,6 +145,27 @@ query reads the zoom-10 tiles around the place and picks the nearest reach.
 Until the tiles are there, `/api/v1/hydro/layers` reports `available: false`
 and the other hydro endpoints answer 503.
 
+## Geothermal data
+
+Three layers, as asked for:
+
+- **Geothermal temperature**: the annual mean ground temperature near the surface
+  (SoilTemp, Lembrechts et al. 2022, 5–15 cm, ~1 km, CC BY 4.0). The annual mean
+  barely changes over the first metres, so it stands for the ground a heat pump uses.
+- **Geothermal heat flow** (mW/m²): from the Global Heat Flow Database 2024 (IHFC,
+  GFZ Data Services, about 91,000 measurements), turned into a 0.25° grid with a
+  Gaussian-weighted mean (σ 80 km, values clipped to 20–150 mW/m²). Where no
+  measurement lies within 250 km the map stays empty; we do not guess.
+- **Temperature at depth** (1, 2, 3, 5 km): ground temperature + heat flow ÷
+  2.5 W/(m·K) × depth, the usual conductive first estimate.
+
+The workflow **Build geothermal map data** (`.github/workflows/geo-build.yml`,
+`tool/geo_build.py`, `tool/geo_fetch_heatflow.py`) downloads both sources, writes
+`geo/ground.tif` and `geo/heatflow.tif` (one byte per cell, read for a point) and
+map tiles for zoom 0–7 (`geo/tiles/<layer>.tiles` + `.index`, packed like the wind
+tiles) to the same R2 bucket, read with the same read-only token. Until they are
+there, `/api/v1/geo/layers` reports `available: false`.
+
 ## Run locally
 
 ```bash
@@ -194,6 +218,9 @@ and account linking by verified email.
 - **River attribution**: RiverATLAS (CC BY 4.0) needs the credit wherever
   the river map or its numbers appear (the app shows it in the map
   attribution).
+- **Geothermal attribution**: SoilTemp (CC BY 4.0) and the Global Heat Flow
+  Database (IHFC) are credited in the map attribution; check the heat flow
+  database's licence line in the build log before launch.
 - **PVGIS is a free public service** with no guaranteed capacity (at most 30
   requests a second per address). Answers are cached in memory; if usage
   grows, keep a persistent cache or ask the PVGIS team (JRC-PVGIS@ec.europa.eu).

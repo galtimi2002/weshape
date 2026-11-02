@@ -1,0 +1,99 @@
+name: Build geothermal map data
+
+# Builds the geothermal map and uploads it to R2 (same bucket as the wind and river data):
+#   geo/ground.tif, geo/heatflow.tif           read by the backend for a point
+#   geo/tiles/<layer>.tiles + .index           map tiles, zoom 0-7: ground, heatflow,
+#                                              depth-1, depth-2, depth-3, depth-5
+# Sources: SoilTemp (Lembrechts et al. 2022, CC BY 4.0) for the ground temperature and the
+# Global Heat Flow Database 2024 (IHFC, GFZ Data Services) for the heat flow. See
+# tool/geo_build.py. Run from the Actions tab with "Run workflow".
+#
+# With "upload" off it only builds and reports the sizes (job summary).
+# Needs the repository secrets R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET.
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Upload to R2 (off: only build and report the sizes)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: geo-build
+  cancel-in-progress: false
+
+env:
+  SOIL_URL: https://zenodo.org/records/4558732/files/SBIO1_Annual_Mean_Temperature_5_15cm.tif?download=1
+  HEATFLOW_DOI: 10.5880/fidgeo.2024.014
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      BUCKET: ${{ secrets.R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GDAL and Python packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gdal-bin python3-gdal python3-numpy python3-scipy python3-pandas \
+            python3-openpyxl python3-pil aria2 > /dev/null
+          gdalinfo --version
+
+      - name: Download the sources
+        run: |
+          mkdir -p src
+          aria2c -x 4 --max-tries=5 --retry-wait=20 -d src -o soil.tif "$SOIL_URL"
+          gdalinfo -stats src/soil.tif | grep -E "Size is|Origin|Pixel Size|NoData|Minimum|Type=" || true
+          python3 tool/geo_fetch_heatflow.py src "$HEATFLOW_DOI" | tee fetch.log
+          echo "HEATFLOW_FILE=$(tail -1 fetch.log)" >> "$GITHUB_ENV"
+          ls -lh src
+
+      - name: Build rasters and tiles
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: python3 tool/geo_build.py src/soil.tif "$HEATFLOW_FILE" out 7
+
+      - name: Report
+        run: |
+          du -sh out out/tiles
+          {
+            echo "### Geothermal data"
+            echo '```'
+            ls -lh out out/tiles
+            cat out/geo.json
+            echo
+            grep -E "licence|landing page" fetch.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload to R2
+        if: ${{ inputs.upload }}
+        run: |
+          aws configure set default.s3.multipart_chunksize 64MB
+          up() {
+            for attempt in 1 2 3 4 5; do
+              aws s3 cp "$1" "s3://$BUCKET/$2" --endpoint-url "$ENDPOINT" --only-show-errors && return 0
+              echo "upload of $1 failed, trying again ($attempt)"; sleep 20
+            done
+            return 1
+          }
+          up out/ground.tif geo/ground.tif
+          up out/heatflow.tif geo/heatflow.tif
+          up out/geo.json geo/geo.json
+          # Tile files first, each index after its tiles (the backend switches once an index is there).
+          for layer in ground heatflow depth-1 depth-2 depth-3 depth-5; do
+            up "out/tiles/$layer.tiles" "geo/tiles/$layer.tiles"
+            up "out/tiles/$layer.index" "geo/tiles/$layer.index"
+          done
+          echo "Uploaded to R2: geo/" >> "$GITHUB_STEP_SUMMARY"

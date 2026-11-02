@@ -62,6 +62,8 @@ public class SecurityConfig {
                                     "/api/v1/wind/tiles/**",
                                     "/api/v1/hydro/layers",
                                     "/api/v1/hydro/tiles/**",
+                                    "/api/v1/geo/layers",
+                                    "/api/v1/geo/tiles/**",
                                     // Spring forwards failures here; keeping it open lets the
                                     // real status (400, 403, 404) reach the client instead of a 401.
                                     "/error",

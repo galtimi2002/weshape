@@ -17,11 +17,11 @@ import java.util.function.IntBinaryOperator;
  * Writes small tiled, ZSTD-compressed GeoTIFFs laid out like the real wind files
  * (8-bit, horizontal predictor, nodata 255, internal overviews), for tests.
  */
-final class TestCogWriter {
+public final class TestCogWriter {
 
-    static final double ORIGIN_X = -180;
-    static final double ORIGIN_Y = 80;
-    static final double PIXEL = 0.25;
+    public static final double ORIGIN_X = -180;
+    public static final double ORIGIN_Y = 80;
+    public static final double PIXEL = 0.25;
     static final int WIDTH = 1440;
     static final int HEIGHT = 576;
     static final int TILE = 256;
@@ -29,7 +29,7 @@ final class TestCogWriter {
     private TestCogWriter() {}
 
     /** Writes a file whose full-resolution cell (col, row) holds values.applyAsInt(col, row); overviews take every 2nd cell. */
-    static void write(Path file, IntBinaryOperator values, boolean bigTiff) throws IOException {
+    public static void write(Path file, IntBinaryOperator values, boolean bigTiff) throws IOException {
         List<int[]> sizes = List.of(new int[] {WIDTH, HEIGHT}, new int[] {WIDTH / 2, HEIGHT / 2}, new int[] {WIDTH / 4, HEIGHT / 4});
         ByteArrayOutputStream body = new ByteArrayOutputStream();
         int headerSize = bigTiff ? 16 : 8;

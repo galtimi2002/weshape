@@ -104,6 +104,9 @@ weshape:
     # The river tiles sit in the same bucket (and local folder) as the wind data,
     # under this prefix; built by the "Build hydro map data" workflow.
     prefix: hydro/tiles/
+  geo:
+    # Geothermal rasters and tiles, same bucket, built by "Build geothermal map data".
+    prefix: geo/
 
 logging:
   level:
