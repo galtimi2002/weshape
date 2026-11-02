@@ -88,7 +88,11 @@ def build_ground(src_path, out_path):
         valid = np.isfinite(v) & (np.abs(v) < 1e6)
         if nodata is not None:
             valid &= v != nodata
-        ob.WriteArray(np.where(valid, ground_code(v * scale), NODATA).astype(np.uint8), 0, y)
+        # No soil is colder than -60 °C or warmer than 60 °C on average: anything else is a fill
+        # value (the file names no nodata value).
+        t = v * scale
+        valid &= (t > -60) & (t < 60)
+        ob.WriteArray(np.where(valid, ground_code(t), NODATA).astype(np.uint8), 0, y)
     dst.FlushCache()
     dst = None
     cog(work, out_path)
