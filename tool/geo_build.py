@@ -49,7 +49,7 @@ HF_REACH_KM = 250.0
 COLORS = ["#FCEBDD", "#F3A77A", "#D45F35", "#8C2A1B"]
 # Colour scale per layer (value range on the map); the backend reports the same.
 SCALES = {
-    "ground": (-5, 30), "heatflow": (30, 120),
+    "ground": (0, 20), "heatflow": (30, 120),
     "depth-1": (20, 70), "depth-2": (40, 120), "depth-3": (60, 170), "depth-5": (100, 260),
 }
 
@@ -267,9 +267,44 @@ class Levels:
         return out
 
 
+class Smooth:
+    """The heat flow grid, read between cell centres (bilinear, cells without data left out),
+    so the map shows gradual changes instead of 25 km squares."""
+
+    def __init__(self, path):
+        ds = gdal.Open(path)
+        gt = ds.GetGeoTransform()
+        self.ox, self.oy, self.sx, self.sy = gt[0], gt[3], gt[1], -gt[5]
+        self.codes = ds.GetRasterBand(1).ReadAsArray()
+        self.h, self.w = self.codes.shape
+
+    def sample(self, lat, lon):
+        fx = (lon - self.ox) / self.sx - 0.5
+        fy = (self.oy - lat) / self.sy - 0.5
+        x0 = np.floor(fx).astype(np.int64)
+        y0 = np.floor(fy).astype(np.int64)
+        tx = (fx - x0)[None, :]
+        ty = (fy - y0)[:, None]
+        total = np.zeros((len(lat), len(lon)))
+        weight = np.zeros_like(total)
+        for dy, wy in ((0, 1 - ty), (1, ty)):
+            rows = np.clip(y0 + dy, 0, self.h - 1)
+            for dx, wx in ((0, 1 - tx), (1, tx)):
+                cols = (x0 + dx) % self.w
+                c = self.codes[rows][:, cols]
+                ok = c != NODATA
+                wgt = np.where(ok, wy * wx, 0)
+                total += wgt * c
+                weight += wgt
+        # Where the nearest cell has no data the map stays empty, as in the grid.
+        near = self.codes[np.clip(np.rint(fy).astype(np.int64), 0, self.h - 1)][:, np.rint(fx).astype(np.int64) % self.w]
+        out = np.where((weight > 0) & (near != NODATA), np.rint(total / np.maximum(weight, 1e-9)), NODATA)
+        return out.astype(np.uint8)
+
+
 def render_tiles(ground_path, heat_path, out, max_zoom):
     ground = Levels(ground_path)
-    heat = Levels(heat_path)
+    heat = Smooth(heat_path)
     layers = ["ground", "heatflow"] + [f"depth-{d}" for d in DEPTHS]
     decoders = {"ground": ground_value, "heatflow": float}
     for d in DEPTHS:
@@ -282,7 +317,7 @@ def render_tiles(ground_path, heat_path, out, max_zoom):
     for z in range(max_zoom + 1):
         n = 2 ** z
         lon = (np.arange(n * TILE) + 0.5) / (n * TILE) * 360 - 180
-        lg, lh = ground.level_for(z), 0
+        lg = ground.level_for(z)
         count = 0
         for ty in range(n):
             py = (ty * TILE + np.arange(TILE) + 0.5) / (n * TILE)
@@ -290,7 +325,7 @@ def render_tiles(ground_path, heat_path, out, max_zoom):
             g = ground.sample(lg, lat, lon)
             if (g == NODATA).all():
                 continue
-            hf = heat.sample(lh, lat, lon)
+            hf = heat.sample(lat, lon)
             t0 = ground_value(g.astype(np.float64))
             qv = hf.astype(np.float64)
             has_q = (hf != NODATA) & (g != NODATA)

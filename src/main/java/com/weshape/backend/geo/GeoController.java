@@ -51,7 +51,7 @@ public class GeoController {
         out.put("source", GeoData.SOURCE);
         out.put("attribution", ATTRIBUTION);
         out.put("layers", List.of(
-                layer("ground", "°C", -5, 30, "/api/v1/geo/tiles/ground/{z}/{x}/{y}.png", null),
+                layer("ground", "°C", 0, 20, "/api/v1/geo/tiles/ground/{z}/{x}/{y}.png", null),
                 layer("depth", "°C", 40, 120, "/api/v1/geo/tiles/depth-{d}/{z}/{x}/{y}.png", depthRanges),
                 layer("heatflow", "mW/m²", 30, 120, "/api/v1/geo/tiles/heatflow/{z}/{x}/{y}.png", null)));
         return out;
