@@ -55,8 +55,11 @@ jobs:
           mkdir -p src
           aria2c -x 4 --max-tries=5 --retry-wait=20 -d src -o soil.tif "$SOIL_URL"
           gdalinfo -stats src/soil.tif | grep -E "Size is|Origin|Pixel Size|NoData|Minimum|Type=" || true
+          set -o pipefail
           python3 tool/geo_fetch_heatflow.py src "$HEATFLOW_DOI" | tee fetch.log
-          echo "HEATFLOW_FILE=$(tail -1 fetch.log)" >> "$GITHUB_ENV"
+          file=$(tail -1 fetch.log)
+          test -f "$file" || { echo "heat flow table not downloaded"; exit 1; }
+          echo "HEATFLOW_FILE=$file" >> "$GITHUB_ENV"
           ls -lh src
 
       - name: Build rasters and tiles

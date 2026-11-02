@@ -117,8 +117,18 @@ def read_table(path):
     else:
         buf = path
     if path.lower().endswith(".xlsx"):
-        frames = pd.read_excel(buf, sheet_name=None)
-        df = max(frames.values(), key=len)
+        frames = pd.read_excel(buf, sheet_name=None, header=None)
+        raw = max(frames.values(), key=len)
+        # The header is the first row that names the heat flow column "q"; rows above it
+        # (titles, notes) are skipped, rows below it that are not numbers drop out later.
+        head = 0
+        for i in range(min(15, len(raw))):
+            cells = [str(c).strip().lower() for c in raw.iloc[i].tolist()]
+            if "q" in cells or any(c.startswith(("lat", "long")) for c in cells):
+                head = i
+                break
+        df = raw.iloc[head + 1:].reset_index(drop=True)
+        df.columns = [str(c).strip() for c in raw.iloc[head].tolist()]
     else:
         df = pd.read_csv(buf, sep=None, engine="python", encoding_errors="replace")
     print("columns:", list(df.columns)[:40], flush=True)
