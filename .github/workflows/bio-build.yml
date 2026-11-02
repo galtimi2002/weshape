@@ -1,0 +1,109 @@
+name: Build biomass map data
+
+# Builds the biomass map and uploads it to R2 (same bucket as the other map data):
+#   bio/density.tif, bio/crop.tif, bio/forest.tif, bio/energy.tif   read by the backend for a point
+#   bio/tiles/<layer>.tiles + .index                                  map tiles, zoom 0-7:
+#                                                                     density, resource, energy
+# Sources: MapSPAM 2020 (IFPRI, CC BY 4.0) for crop residues and ESA CCI Biomass for forest
+# residues. See tool/bio_build.py. Run from the Actions tab with "Run workflow".
+#
+# MapSPAM sits behind a short guestbook form on the Harvard Dataverse. The workflow first takes
+# bio/src/spam2020_production.zip from R2, then tries the Dataverse download; if both fail it
+# stops and says how to put the zip in R2.
+#
+# Needs the repository secrets R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET.
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Upload to R2 (off: only build and report the sizes)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bio-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      BUCKET: ${{ secrets.R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GDAL and Python packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gdal-bin python3-gdal python3-numpy python3-pil > /dev/null
+          gdalinfo --version
+
+      - name: Forest biomass (ESA CCI)
+        run: |
+          set -o pipefail
+          python3 tool/bio_fetch.py agb src | tee agb.log
+          file=$(tail -1 agb.log)
+          test -f "$file" || { echo "biomass file not downloaded"; exit 1; }
+          echo "AGB_FILE=$file" >> "$GITHUB_ENV"
+          gdalinfo "$file" | head -40
+
+      - name: Crop production (MapSPAM 2020)
+        run: |
+          mkdir -p src
+          if aws s3 cp "s3://$BUCKET/bio/src/spam2020_production.zip" src/spam2020_production.zip \
+               --endpoint-url "$ENDPOINT" --only-show-errors; then
+            echo "taken from R2"
+          elif python3 tool/bio_fetch.py spam src; then
+            echo "taken from the Dataverse"
+          else
+            echo "::error::MapSPAM could not be downloaded. Download spam2020V2r2_global_production.geotiff.zip from https://doi.org/10.7910/DVN/SWPENT (fill in the short form) and upload it to the R2 bucket as bio/src/spam2020_production.zip, then run this again."
+            exit 1
+          fi
+          unzip -l src/spam2020_production.zip | head -20
+          ls -lh src
+
+      - name: Build rasters and tiles
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: python3 tool/bio_build.py src/spam2020_production.zip "$AGB_FILE" out 7
+
+      - name: Report
+        run: |
+          du -sh out out/tiles
+          {
+            echo "### Biomass data"
+            echo '```'
+            ls -lh out out/tiles
+            cat out/bio.json
+            echo
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload to R2
+        if: ${{ inputs.upload }}
+        run: |
+          aws configure set default.s3.multipart_chunksize 64MB
+          up() {
+            for attempt in 1 2 3 4 5; do
+              aws s3 cp "$1" "s3://$BUCKET/$2" --endpoint-url "$ENDPOINT" --only-show-errors && return 0
+              echo "upload of $1 failed, trying again ($attempt)"; sleep 20
+            done
+            return 1
+          }
+          for name in density crop forest energy; do up "out/$name.tif" "bio/$name.tif"; done
+          up out/bio.json bio/bio.json
+          # Tile files first, each index after its tiles (the backend switches once an index is there).
+          for layer in density resource energy; do
+            up "out/tiles/$layer.tiles" "bio/tiles/$layer.tiles"
+            up "out/tiles/$layer.index" "bio/tiles/$layer.index"
+          done
+          echo "Uploaded to R2: bio/" >> "$GITHUB_STEP_SUMMARY"

@@ -40,6 +40,9 @@ salted and hashed; the backend only ever receives signed ID tokens.
 | GET | `/api/v1/geo/point?lat=46.77&lon=23.59` | token | ground temperature, heat flow and estimated temperature at 1, 2, 3, 5 km; 404 over the sea |
 | GET | `/api/v1/geo/layers` | public | geothermal map layers (ground, depth, heatflow): units, colour scales per depth, tile addresses, attribution |
 | GET | `/api/v1/geo/tiles/{ground,heatflow,depth-1…depth-5}/{z}/{x}/{y}.png` | public | map tiles (zoom 0–7) |
+| GET | `/api/v1/bio/point?lat=46.77&lon=23.59` | token | biomass density here, crop and forest residues and their energy within 25 km, homes heated; 404 over the sea |
+| GET | `/api/v1/bio/layers` | public | biomass map layers (density, resource, energy): units, colour scales, tile addresses, attribution |
+| GET | `/api/v1/bio/tiles/{density,resource,energy}/{z}/{x}/{y}.png` | public | map tiles (zoom 0–7) |
 
 Leaving `preferredLanguage` out of the profile call sets it from the country
 (HU → hu, AT → de, BR → pt, anything unmapped → en).
@@ -166,6 +169,37 @@ map tiles for zoom 0–7 (`geo/tiles/<layer>.tiles` + `.index`, packed like the 
 tiles) to the same R2 bucket, read with the same read-only token. Until they are
 there, `/api/v1/geo/layers` reports `available: false`.
 
+## Biomass data
+
+Three layers, as asked for:
+
+- **Biomass availability density** (t/ha per year): crop and forest residues
+  that can be taken sustainably, here.
+- **Biomass resource potential** (thousand t per year): the same summed over a
+  25 km collection radius, what a boiler or plant could draw on.
+- **Biomass energy potential** (GWh per year within 25 km): its heating value,
+  per residue type (straw about 4.1, maize stover 4.7, wood 5.1 MWh/t).
+
+Crop residues come from **MapSPAM 2020** (IFPRI, CC BY 4.0, production of each
+crop on a 5 arc-minute grid): production × residue-to-product ratio (wheat 1.3,
+maize 1.0, sunflower 2.0 …, see `RESIDUES` in `tool/bio_build.py`) × 40 %; the
+rest stays on the field for the soil. Forest residues come from **ESA CCI
+Biomass** above-ground biomass: 0.2 % of it a year (branches and tops of
+sustainable harvests, about 0.3–0.6 t/ha in European forests). "Homes heated"
+uses 15 MWh of heat a year per family home.
+
+The workflow **Build biomass map data** (`.github/workflows/bio-build.yml`,
+`tool/bio_build.py`, `tool/bio_fetch.py`) writes `bio/density.tif`,
+`crop.tif`, `forest.tif`, `energy.tif` (one byte per cell, log scale) and map
+tiles for zoom 0–7 to the same R2 bucket. MapSPAM sits behind a short form on
+the Harvard Dataverse: if the workflow cannot download it, download
+`spam2020V2r2_global_production.geotiff.zip` from
+https://doi.org/10.7910/DVN/SWPENT and upload it to the bucket as
+`bio/src/spam2020_production.zip`.
+
+The geothermal and biomass data are read through `MapStore`, which reopens
+the files by itself when a rebuild replaced them while the backend runs.
+
 ## Run locally
 
 ```bash
@@ -221,6 +255,8 @@ and account linking by verified email.
 - **Geothermal attribution**: SoilTemp (CC BY 4.0) and the Global Heat Flow
   Database (IHFC) are credited in the map attribution; check the heat flow
   database's licence line in the build log before launch.
+- **Biomass attribution**: MapSPAM (CC BY 4.0) and ESA CCI Biomass (ESA CCI
+  terms, any use with citation) are credited in the map attribution.
 - **PVGIS is a free public service** with no guaranteed capacity (at most 30
   requests a second per address). Answers are cached in memory; if usage
   grows, keep a persistent cache or ask the PVGIS team (JRC-PVGIS@ec.europa.eu).

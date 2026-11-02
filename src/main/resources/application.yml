@@ -107,6 +107,9 @@ weshape:
   geo:
     # Geothermal rasters and tiles, same bucket, built by "Build geothermal map data".
     prefix: geo/
+  bio:
+    # Biomass rasters and tiles, same bucket, built by "Build biomass map data".
+    prefix: bio/
 
 logging:
   level:
