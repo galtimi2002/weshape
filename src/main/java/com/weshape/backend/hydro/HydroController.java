@@ -25,7 +25,7 @@ public class HydroController {
     static final String ATTRIBUTION = "River data: <a href=\"https://www.hydrosheds.org/hydroatlas\" target=\"_blank\" "
             + "rel=\"noopener\">RiverATLAS</a> v1.0, Linke et al. 2019 (CC BY 4.0)";
     static final MediaType PROTOBUF = MediaType.parseMediaType("application/x-protobuf");
-    private static final List<String> COLORS = List.of("#DDF1F4", "#7CC5D6", "#2B8BA8", "#145A73");
+    private static final List<String> COLORS = List.of("#9FD7E3", "#52B1C8", "#1F7FA0", "#0D4864");
 
     private final HydroData hydro;
 
