@@ -41,7 +41,8 @@ public class GeoData {
     private final String prefix;
     private final Map<String, CogFile> files = new ConcurrentHashMap<>();
     private final Map<String, TileIndex> indexes = new ConcurrentHashMap<>();
-    private final Map<String, Long> checkedAt = new ConcurrentHashMap<>();
+    /** When a file or index last failed to load; tried again after {@link #RETRY_AFTER_MS}. */
+    private final Map<String, Long> failedAt = new ConcurrentHashMap<>();
     private final ByteCache blocks = new ByteCache(16L * 1024 * 1024);
     private final ByteCache tiles = new ByteCache(24L * 1024 * 1024);
 
@@ -176,21 +177,31 @@ public class GeoData {
         if (idx != null || source == null) {
             return idx;
         }
-        Long checked = checkedAt.get("index:" + layer);
-        if (checked != null && System.currentTimeMillis() - checked < RETRY_AFTER_MS) {
-            return null;
+        // One loader at a time; a caller that comes while another loads waits for its result.
+        synchronized (indexes) {
+            idx = indexes.get(layer);
+            if (idx != null || recentlyFailed("index:" + layer)) {
+                return idx;
+            }
+            try {
+                idx = TileIndex.parse(source.readAll(prefix + "tiles/" + layer + ".index"));
+                indexes.put(layer, idx);
+                failedAt.remove("index:" + layer);
+                log.info("Geothermal map: {} stored tiles for {}", idx.size(), layer);
+            } catch (FileNotFoundException e) {
+                failedAt.put("index:" + layer, System.currentTimeMillis());
+                log.info("Geothermal map: no tiles yet for {}", layer);
+            } catch (IOException e) {
+                failedAt.put("index:" + layer, System.currentTimeMillis());
+                log.warn("Geothermal map: tile index for {} unreadable: {}", layer, e.getMessage());
+            }
+            return idx;
         }
-        checkedAt.put("index:" + layer, System.currentTimeMillis());
-        try {
-            idx = TileIndex.parse(source.readAll(prefix + "tiles/" + layer + ".index"));
-            indexes.put(layer, idx);
-            log.info("Geothermal map: {} stored tiles for {}", idx.size(), layer);
-        } catch (FileNotFoundException e) {
-            log.info("Geothermal map: no tiles yet for {}", layer);
-        } catch (IOException e) {
-            log.warn("Geothermal map: tile index for {} unreadable: {}", layer, e.getMessage());
-        }
-        return idx;
+    }
+
+    private boolean recentlyFailed(String key) {
+        Long failed = failedAt.get(key);
+        return failed != null && System.currentTimeMillis() - failed < RETRY_AFTER_MS;
     }
 
     private CogFile file(String name) {
@@ -198,21 +209,18 @@ public class GeoData {
         if (f != null || source == null) {
             return f;
         }
-        Long checked = checkedAt.get("file:" + name);
-        if (checked != null && System.currentTimeMillis() - checked < RETRY_AFTER_MS) {
-            return null;
-        }
         synchronized (files) {
             f = files.get(name);
-            if (f != null) {
+            if (f != null || recentlyFailed("file:" + name)) {
                 return f;
             }
-            checkedAt.put("file:" + name, System.currentTimeMillis());
             try {
                 f = new CogFile(source, prefix + name + ".tif");
                 files.put(name, f);
+                failedAt.remove("file:" + name);
                 log.info("Geothermal map: opened {} ({} levels)", name, f.levels().size());
             } catch (IOException e) {
+                failedAt.put("file:" + name, System.currentTimeMillis());
                 log.info("Geothermal map: cannot open {}: {}", name, e.getMessage());
             }
             return f;
