@@ -408,6 +408,11 @@ public class WindData {
             return map.get(key);
         }
 
+        public synchronized void clear() {
+            map.clear();
+            used = 0;
+        }
+
         public synchronized void put(String key, byte[] value) {
             byte[] old = map.put(key, value);
             used += value.length + 64 - (old == null ? 0 : old.length + 64);

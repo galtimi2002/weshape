@@ -152,12 +152,21 @@ public class CogFile {
             return null;
         }
         byte[] packed = source.read(key, offset, (int) count);
+        if (packed.length != count) {
+            // The file is shorter than its header says: it was replaced since it was opened.
+            throw new IOException(key + ": block " + index + " cut short (" + packed.length + " of " + count + " bytes)");
+        }
         int size = l.tileWidth() * l.tileHeight();
         byte[] out = new byte[size];
         switch (compression) {
             case 1 -> System.arraycopy(packed, 0, out, 0, Math.min(size, packed.length));
             case 8, 32946 -> inflate(packed, out);
-            case 50000 -> new ZstdDecompressor().decompress(packed, 0, packed.length, out, 0, size);
+            case 50000 -> {
+                int n = new ZstdDecompressor().decompress(packed, 0, packed.length, out, 0, size);
+                if (n != size) {
+                    throw new IOException(key + ": block " + index + " unpacks to " + n + " of " + size + " bytes");
+                }
+            }
             default -> throw new IOException("compression " + compression);
         }
         if (predictor == 2) {

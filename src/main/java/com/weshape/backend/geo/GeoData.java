@@ -123,8 +123,11 @@ public class GeoData {
         if (data == null) {
             try {
                 data = f.readTile(0, tx, ty);
-            } catch (IOException e) {
-                log.warn("Geothermal map: block {} unreadable: {}", key, e.getMessage());
+            } catch (IOException | RuntimeException e) {
+                // Most likely the workflow replaced the files since they were opened: forget them,
+                // the next request opens the new ones.
+                log.warn("Geothermal map: block {} unreadable ({}), reopening the files", key, e.toString());
+                forget();
                 throw new GeoUnavailableException();
             }
             if (data == null) {
@@ -225,6 +228,19 @@ public class GeoData {
             }
             return f;
         }
+    }
+
+    /** Drops every opened file, index and cached block (after the data was rebuilt). */
+    void forget() {
+        synchronized (files) {
+            files.clear();
+        }
+        synchronized (indexes) {
+            indexes.clear();
+        }
+        failedAt.clear();
+        blocks.clear();
+        tiles.clear();
     }
 
     /** The geothermal data cannot be read right now (not built yet, or the store is unreachable). */

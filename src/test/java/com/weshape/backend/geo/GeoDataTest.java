@@ -42,6 +42,22 @@ class GeoDataTest {
     }
 
     @Test
+    @DisplayName("when the data is rebuilt while open, one request fails and the next reads the new files")
+    void rebuilt() throws Exception {
+        GeoTestFiles.write(dir);
+        GeoData geo = new GeoData(new FileRangeSource(dir), "geo/");
+        assertThat(geo.point(46.77, 23.59).groundTemperature()).isEqualTo(10.5);
+        // The workflow replaces the file: here a cut-off copy, so the old block positions point nowhere.
+        Path ground = dir.resolve("geo/ground.tif");
+        byte[] whole = Files.readAllBytes(ground);
+        Files.write(ground, java.util.Arrays.copyOf(whole, 16));
+        assertThatThrownBy(() -> geo.point(-20, 120)).isInstanceOf(GeoData.GeoUnavailableException.class);
+        // The new build is complete again: the next request opens it.
+        com.weshape.backend.wind.TestCogWriter.write(ground, (c, r) -> (int) Math.round((15.0 + 30) * 4), true);
+        assertThat(geo.point(-20, 120).groundTemperature()).isEqualTo(15.0);
+    }
+
+    @Test
     @DisplayName("the sea is 404, tiles come from the stored files, nothing built is unavailable")
     void seaAndTiles() throws Exception {
         GeoTestFiles.write(dir);
