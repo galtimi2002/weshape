@@ -100,6 +100,10 @@ weshape:
       secret-access-key: ${WIND_R2_SECRET_ACCESS_KEY:}
     # Or a local folder with the same files (wind/gwa/ws100.tif ...), for development.
     local-dir: ${WIND_LOCAL_DIR:}
+  hydro:
+    # The river tiles sit in the same bucket (and local folder) as the wind data,
+    # under this prefix; built by the "Build hydro map data" workflow.
+    prefix: hydro/tiles/
 
 logging:
   level:

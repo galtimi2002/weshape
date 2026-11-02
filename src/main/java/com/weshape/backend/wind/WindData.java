@@ -4,7 +4,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -63,7 +62,7 @@ public class WindData {
             @Value("${weshape.wind.local-dir:}") String localDir,
             @Value("${weshape.wind.prefix:wind/gwa/}") String prefix,
             @Value("${weshape.wind.tiles-prefix:wind/tiles/}") String tilesPrefix) {
-        this(chooseSource(accountId, bucket, accessKey, secretKey, localDir), prefix, tilesPrefix);
+        this(RangeSources.configured(accountId, bucket, accessKey, secretKey, localDir), prefix, tilesPrefix);
     }
 
     public WindData(RangeSource source, String prefix) {
@@ -80,17 +79,6 @@ public class WindData {
             // Read the file headers now, so the first click on the map does not wait for them.
             Thread.ofVirtual().name("wind-warm-up").start(() -> FILES.forEach(this::file));
         }
-    }
-
-    private static RangeSource chooseSource(String accountId, String bucket, String accessKey, String secretKey,
-                                            String localDir) {
-        if (!accountId.isBlank() && !bucket.isBlank() && !accessKey.isBlank() && !secretKey.isBlank()) {
-            return new R2RangeSource(accountId.trim(), bucket.trim(), accessKey.trim(), secretKey.trim());
-        }
-        if (!localDir.isBlank()) {
-            return new FileRangeSource(Path.of(localDir));
-        }
-        return null;
     }
 
     /** True when the files can be read (checked by opening the 100 m speed layer). */
@@ -407,20 +395,20 @@ public class WindData {
     }
 
     /** A small least-recently-used cache limited by total size. */
-    static final class ByteCache {
+    public static final class ByteCache {
         private final long budget;
         private long used;
         private final LinkedHashMap<String, byte[]> map = new LinkedHashMap<>(256, 0.75f, true);
 
-        ByteCache(long budget) {
+        public ByteCache(long budget) {
             this.budget = budget;
         }
 
-        synchronized byte[] get(String key) {
+        public synchronized byte[] get(String key) {
             return map.get(key);
         }
 
-        synchronized void put(String key, byte[] value) {
+        public synchronized void put(String key, byte[] value) {
             byte[] old = map.put(key, value);
             used += value.length + 64 - (old == null ? 0 : old.length + 64);
             var it = map.entrySet().iterator();

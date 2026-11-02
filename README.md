@@ -34,6 +34,9 @@ salted and hashed; the backend only ever receives signed ID tokens.
 | GET | `/api/v1/wind/point?lat=46.77&lon=23.59` | token | mean wind speed at 10, 50, 100, 150, 200 m and power density at 100 m (Global Wind Atlas, 250 m); 404 over open sea |
 | GET | `/api/v1/wind/layers` | public | wind map layers: units, colour scales, tile addresses, attribution |
 | GET | `/api/v1/wind/tiles/{speed,power,height-10…height-200}/{z}/{x}/{y}.png` | public | map tiles (Web Mercator, 256 px) |
+| GET | `/api/v1/hydro/point?lat=46.77&lon=23.59` | token | the nearest river reach within 2 km: estimated potential, available flow, driest/mean/wettest month flow, head (RiverATLAS); 404 when no river is near |
+| GET | `/api/v1/hydro/layers` | public | river map layers (potential, flow, head): tile property, units, colour scales, attribution |
+| GET | `/api/v1/hydro/tiles/{z}/{x}/{y}.pbf` | public | river vector tiles (zoom 0–10, gzip); 204 where there are no rivers |
 
 Leaving `preferredLanguage` out of the profile call sets it from the country
 (HU → hu, AT → de, BR → pt, anything unmapped → en).
@@ -109,6 +112,36 @@ Without bucket settings `/api/v1/wind/layers` reports `available: false` and
 the other wind endpoints answer 503. For development, `WIND_LOCAL_DIR` can
 point to a folder holding the same files (`wind/gwa/ws100.tif` ...).
 
+## Hydro data
+
+The river map uses **RiverATLAS v1.0** (HydroSHEDS / HydroATLAS, Linke et al.
+2019, CC BY 4.0): every river reach in the world (about 8.5 million, each a few
+km long) with its modelled flow and stream gradient. Per reach:
+
+- **Available river flow** = mean flow × (1 − 10 %). The 10 % stays in the
+  river for nature (ecological flow; the usual minimum in EU rules — the
+  local permit decides the real figure).
+- **Hydraulic head** = stream gradient × reach length: how far the water drops
+  along the reach.
+- **Estimated hydropower potential** = 9.81 × available flow × head × 0.8
+  (turbine and generator efficiency), in kW: the gross potential of the
+  whole reach, before any site design.
+
+Reaches under 0.1 m³/s mean flow are left out. The card also shows the mean
+flow of the driest and the wettest month.
+
+The workflow **Build hydro map data** (`.github/workflows/hydro-rivers-build.yml`)
+downloads RiverATLAS, computes these values (`tool/hydro_build_rivers.py`),
+makes vector tiles for zoom 0–10 with tippecanoe (big rivers from zoom 0, the
+smallest from zoom 10) and packs them like the wind tiles
+(`tool/hydro_pack_tiles.py`): `hydro/tiles/rivers.tiles` and `rivers.index` in
+the same R2 bucket, read with the same read-only token. The map draws the
+tiles itself (MapLibre), so the three layers share one tile set; a point
+query reads the zoom-10 tiles around the place and picks the nearest reach.
+
+Until the tiles are there, `/api/v1/hydro/layers` reports `available: false`
+and the other hydro endpoints answer 503.
+
 ## Run locally
 
 ```bash
@@ -158,6 +191,9 @@ and account linking by verified email.
 - **Wind attribution**: the Global Wind Atlas licence (CC BY 4.0) needs the
   credit shown wherever the wind map or its numbers appear (the app shows it
   in the map attribution).
+- **River attribution**: RiverATLAS (CC BY 4.0) needs the credit wherever
+  the river map or its numbers appear (the app shows it in the map
+  attribution).
 - **PVGIS is a free public service** with no guaranteed capacity (at most 30
   requests a second per address). Answers are cached in memory; if usage
   grows, keep a persistent cache or ask the PVGIS team (JRC-PVGIS@ec.europa.eu).

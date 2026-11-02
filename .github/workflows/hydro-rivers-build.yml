@@ -1,0 +1,120 @@
+name: Build hydro map data
+
+# Builds the river map from RiverATLAS v1.0 (HydroSHEDS / HydroATLAS, CC BY 4.0):
+# every river reach in the world with its flow, head and estimated hydropower
+# potential, as vector tiles (zoom 0 to 10), and uploads them to R2:
+# hydro/tiles/rivers.tiles (all tiles) and hydro/tiles/rivers.index (where each is).
+# The index goes up last; the backend switches the river map on once it is there.
+# Run from the Actions tab with "Run workflow". Takes about an hour.
+#
+# With "upload" off it only builds and reports the sizes (job summary).
+#
+# Needs the repository secrets R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+# R2_SECRET_ACCESS_KEY and R2_BUCKET (the same as the wind workflows).
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Upload to R2 (off: only build and report the sizes)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hydro-rivers
+  cancel-in-progress: false
+
+env:
+  # RiverATLAS v1.0, shapefile version (2.55 GB), from https://www.hydrosheds.org/hydroatlas
+  SOURCE_URL: https://figshare.com/ndownloader/files/20087486
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      BUCKET: ${{ secrets.R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make room on the disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Install GDAL, aria2 and tippecanoe
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gdal-bin aria2 build-essential libsqlite3-dev zlib1g-dev > /dev/null
+          ogr2ogr --version
+          git clone --depth 1 https://github.com/felt/tippecanoe.git /tmp/tippecanoe
+          make -C /tmp/tippecanoe -j"$(nproc)" > /dev/null
+          sudo make -C /tmp/tippecanoe install > /dev/null
+          tippecanoe --version
+
+      - name: Download RiverATLAS
+        run: |
+          mkdir -p src
+          aria2c -x 8 -s 8 --max-tries=5 --retry-wait=20 --summary-interval=60 \
+            -d src -o RiverATLAS.zip "$SOURCE_URL"
+          ls -lh src
+          unzip -l src/RiverATLAS.zip | grep -iE "\.(shp|dbf)$" || true
+
+      - name: Show the fields (first shapefile)
+        run: |
+          shp=$(unzip -Z1 src/RiverATLAS.zip | grep -iE "\.shp$" | head -1)
+          ogrinfo -so -ro "/vsizip/$PWD/src/RiverATLAS.zip/$shp" "$(basename "${shp%.*}")" \
+            | grep -iE "feature count|extent|dis_m3_pyr|dis_m3_pmn|dis_m3_pmx|sgr_dk_rav|length_km|^Layer"
+
+      - name: Reaches with flow, head and potential
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: |
+          python3 tool/hydro_build_rivers.py src/RiverATLAS.zip rivers.geojsons
+          rm src/RiverATLAS.zip
+          ls -lh rivers.geojsons
+          df -h /
+
+      - name: Vector tiles
+        run: |
+          # Every reach is kept from its own zoom on (set by its flow); nothing is dropped.
+          tippecanoe -o rivers.mbtiles -l rivers -Z0 -z10 -P --force \
+            --no-feature-limit --no-tile-size-limit --buffer=8 \
+            --attribution='RiverATLAS v1.0 (CC BY 4.0)' rivers.geojsons
+          rm rivers.geojsons
+          ls -lh rivers.mbtiles
+
+      - name: Pack the tiles
+        run: |
+          python3 tool/hydro_pack_tiles.py rivers.mbtiles out
+          ls -lh out
+          {
+            echo "### River tiles"
+            echo '```'
+            ls -lh out
+            cat rivers.geojsons.json; echo
+            cat out/rivers.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload to R2
+        if: ${{ inputs.upload }}
+        run: |
+          aws configure set default.s3.multipart_chunksize 64MB
+          # The tile file first, the index last (the backend switches once the index is there).
+          for ext in tiles index json; do
+            for attempt in 1 2 3 4 5; do
+              aws s3 cp "out/rivers.$ext" "s3://$BUCKET/hydro/tiles/rivers.$ext" \
+                --endpoint-url "$ENDPOINT" --only-show-errors && break
+              [ "$attempt" = 5 ] && exit 1
+              echo "upload of $ext failed, trying again ($attempt)"; sleep 20
+            done
+          done
+          echo "Uploaded to R2: hydro/tiles/" >> "$GITHUB_STEP_SUMMARY"

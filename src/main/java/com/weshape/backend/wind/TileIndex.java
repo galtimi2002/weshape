@@ -9,7 +9,7 @@ import java.util.Arrays;
  * tool/gwa_render_tiles.py): "WSTI", version 1, count, then per tile, sorted by key,
  * key = z &lt;&lt; 48 | x &lt;&lt; 24 | y, offset, length; all big-endian.
  */
-final class TileIndex {
+public final class TileIndex {
 
     private final long[] keys;
     private final long[] offsets;
@@ -21,7 +21,7 @@ final class TileIndex {
         this.lengths = lengths;
     }
 
-    static TileIndex parse(byte[] data) throws IOException {
+    public static TileIndex parse(byte[] data) throws IOException {
         ByteBuffer b = ByteBuffer.wrap(data);
         if (data.length < 12 || b.get() != 'W' || b.get() != 'S' || b.get() != 'T' || b.get() != 'I') {
             throw new IOException("not a tile index");
@@ -42,16 +42,16 @@ final class TileIndex {
         return new TileIndex(keys, offsets, lengths);
     }
 
-    static long key(int z, int x, int y) {
+    public static long key(int z, int x, int y) {
         return ((long) z << 48) | ((long) x << 24) | y;
     }
 
-    int size() {
+    public int size() {
         return keys.length;
     }
 
     /** {offset, length} of the tile, or null when there is no tile (no data there). */
-    long[] find(int z, int x, int y) {
+    public long[] find(int z, int x, int y) {
         int i = Arrays.binarySearch(keys, key(z, x, y));
         return i < 0 ? null : new long[] {offsets[i], lengths[i]};
     }
