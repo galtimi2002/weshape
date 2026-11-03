@@ -1,0 +1,38 @@
+name: Check open building data
+
+# Research run for the home assessment: how complete Overture Maps buildings (OSM + Microsoft +
+# Google + others) are in a few sample areas, and how often they carry height, floors and roof
+# shape. Reads the public Overture bucket directly; uploads nothing. See tool/building_check.py.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Overture release (empty: the newest)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install DuckDB
+        run: pip install --quiet duckdb
+      - name: Find the release
+        run: |
+          release="${{ inputs.release }}"
+          if [ -z "$release" ]; then
+            aws s3 ls s3://overturemaps-us-west-2/release/ --no-sign-request
+            release=$(aws s3 ls s3://overturemaps-us-west-2/release/ --no-sign-request | awk '{print $2}' | tr -d / | sort -V | tail -1)
+          fi
+          echo "RELEASE=$release" >> "$GITHUB_ENV"
+          echo "Overture release: $release"
+      - name: Count
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: python3 tool/building_check.py "$RELEASE"
