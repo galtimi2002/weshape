@@ -276,3 +276,12 @@ and account linking by verified email.
 - **GitHub settings** for `.github/workflows/pvgis-refresh.yml`:
   Settings → Actions → General → "Allow GitHub Actions to create and approve
   pull requests".
+
+## Later
+
+- **Building heights for the community path**: open data has almost no floor
+  counts or heights in Romania and Hungary (see `tool/building_check.py`;
+  0–28 % of buildings). The home path asks the user instead. For the community
+  path (every building of a village), GlobalBuildingAtlas (TU Munich) has
+  heights for about 97 % of buildings worldwide, but under CC BY-NC 4.0: write
+  to the authors for a commercial licence before using it.
