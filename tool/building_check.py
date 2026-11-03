@@ -27,6 +27,13 @@ def main(release):
     con = duckdb.connect()
     for sql in ("INSTALL httpfs", "LOAD httpfs", "INSTALL spatial", "LOAD spatial", "SET s3_region='us-west-2'"):
         con.execute(sql)
+    # DuckDB 2.x: say that coordinates are longitude, latitude (Overture's order). Older versions
+    # do not know the setting and assume latitude, longitude, so the area needs flipped axes there.
+    try:
+        con.execute("SET geometry_always_xy = true")
+        area = "ST_Area_Spheroid({g})"
+    except duckdb.Error:
+        area = "ST_Area_Spheroid(ST_FlipCoordinates({g}))"
     src = f"s3://overturemaps-us-west-2/release/{release}/theme=buildings/type=building/*"
     rows = []
     for name, (w, s, e, n) in AREAS.items():
@@ -40,18 +47,18 @@ def main(release):
                count(CASE WHEN sources[1].dataset = 'OpenStreetMap' THEN 1 END) AS osm,
                count(CASE WHEN sources[1].dataset ILIKE '%microsoft%' THEN 1 END) AS ms,
                count(CASE WHEN sources[1].dataset ILIKE '%google%' THEN 1 END) AS goog,
-               median(ST_Area_Spheroid(ST_FlipCoordinates({{geom}}))) AS area
+               median({{area}}) AS area
         FROM read_parquet('{src}', hive_partitioning=1)
         WHERE bbox.xmin >= {w} AND bbox.xmax <= {e} AND bbox.ymin >= {s} AND bbox.ymax <= {n}
         """
         # Newer DuckDB reads the GeoParquet column as GEOMETRY, older ones as WKB bytes.
         try:
-            r = con.execute(q.replace("{geom}", "geometry")).fetchone()
-        except duckdb.Error:
-            r = con.execute(q.replace("{geom}", "ST_GeomFromWKB(geometry)")).fetchone()
-        n_, h, f, roof, hf, ds, osm, ms, goog, area = r
+            r = con.execute(q.replace("{area}", area.format(g="geometry"))).fetchone()
+        except duckdb.BinderException:
+            r = con.execute(q.replace("{area}", area.format(g="ST_GeomFromWKB(geometry)"))).fetchone()
+        n_, h, f, roof, hf, ds, osm, ms, goog, med = r
         pct = lambda x: f"{100 * x / n_:.0f}%" if n_ else "–"
-        rows.append(f"| {name} | {n_:,} | {pct(osm)} / {pct(ms)} / {pct(goog)} | {pct(h)} | {pct(f)} | {pct(hf)} | {pct(roof)} | {area or 0:.0f} m² |")
+        rows.append(f"| {name} | {n_:,} | {pct(osm)} / {pct(ms)} / {pct(goog)} | {pct(h)} | {pct(f)} | {pct(hf)} | {pct(roof)} | {med or 0:.0f} m² |")
         print(name, r, flush=True)
     table = "\n".join([
         f"### Open building data, Overture {release}",
