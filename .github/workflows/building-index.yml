@@ -72,7 +72,8 @@ jobs:
         if: env.SKIP != '1'
         env:
           PYTHONUNBUFFERED: "1"
-        run: python3 tool/building_index.py "$RELEASE" index.json
+        # Overture's bucket is public: without this, DuckDB would sign the requests with the R2 key.
+        run: env -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_DEFAULT_REGION python3 tool/building_index.py "$RELEASE" index.json
       - name: Upload
         if: env.SKIP != '1'
         run: |
