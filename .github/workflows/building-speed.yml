@@ -1,0 +1,37 @@
+name: Measure building lookup speed
+
+# Research run for the map step of the home assessment: how long it takes to read the buildings in
+# a 1 × 1 km square straight from the public Overture Maps bucket, in ten places around the world.
+# Uploads nothing. See tool/building_speed.py.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Overture release (empty: the newest)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install DuckDB
+        run: pip install --quiet duckdb
+      - name: Find the release
+        run: |
+          release="${{ inputs.release }}"
+          if [ -z "$release" ]; then
+            release=$(aws s3 ls s3://overturemaps-us-west-2/release/ --no-sign-request | awk '{print $2}' | tr -d / | sort -V | tail -1)
+          fi
+          echo "RELEASE=$release" >> "$GITHUB_ENV"
+          echo "Overture release: $release"
+      - name: Measure
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: python3 tool/building_speed.py "$RELEASE"
