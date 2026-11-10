@@ -43,6 +43,7 @@ salted and hashed; the backend only ever receives signed ID tokens.
 | GET | `/api/v1/bio/point?lat=46.77&lon=23.59` | token | biomass density here, crop and forest residues and their energy within 25 km, homes heated; 404 over the sea |
 | GET | `/api/v1/bio/layers` | public | biomass map layers (density, resource, energy): units, colour scales, tile addresses, attribution |
 | GET | `/api/v1/bio/tiles/{density,resource,energy}/{z}/{x}/{y}.png` | public | map tiles (zoom 0–7) |
+| GET | `/api/v1/buildings/at?lat=46.77&lon=23.59` | token | the building at the place (or the nearest within 20 m): outline, area, walls and the way each faces, height/floors/roof when known; and the buildings within 50 m (Overture Maps); 503 until the index is built |
 
 Leaving `preferredLanguage` out of the profile call sets it from the country
 (HU → hu, AT → de, BR → pt, anything unmapped → en).
@@ -200,6 +201,26 @@ https://doi.org/10.7910/DVN/SWPENT and upload it to the bucket as
 
 The geothermal and biomass data are read through `MapStore`, which reopens
 the files by itself when a rebuild replaced them while the backend runs.
+
+## Building outlines
+
+The home assessment shows the outline of the user's house and the buildings around it. They come
+from **Overture Maps** (buildings theme: OpenStreetMap, Microsoft and Google footprints and others,
+merged; ODbL, attribution in every answer), worldwide, more than two billion buildings in some 500
+Parquet files in Overture's public bucket. Nothing is copied: the backend reads the square of about
+240 × 240 m around a place straight from those files with DuckDB (`duckdb_jdbc`, which fetches only
+the byte ranges it needs), in about a second.
+
+To know which file to open, it reads `buildings/index.json` from the R2 bucket: the area each file
+covers. The workflow **Build building index** (`.github/workflows/building-index.yml`,
+`tool/building_index.py`) builds it from the files' Parquet statistics. Overture releases about
+once a month and removes old releases after a while, so the workflow runs every Tuesday and does
+nothing when the index already belongs to the newest release; the backend reloads the index every
+6 hours. Run it once by hand after the first deploy.
+
+Answers stay in memory only (300 places). DuckDB lives outside the Java heap, so the heap is
+capped at 60 % of the instance's memory and DuckDB at 128 MB (`BUILDINGS_DUCKDB_MEMORY`). It
+downloads its `httpfs` extension into the temp folder on the first lookup.
 
 ## Keeping the data current
 

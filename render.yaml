@@ -37,4 +37,4 @@ services:
         value: "false"
 
       - key: JAVA_OPTS
-        value: -XX:MaxRAMPercentage=75 -XX:+UseSerialGC
+        value: -XX:MaxRAMPercentage=60 -XX:+UseSerialGC

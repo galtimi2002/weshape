@@ -79,6 +79,12 @@
             <artifactId>aircompressor</artifactId>
             <version>0.27</version>
         </dependency>
+        <!-- Reads the Overture Maps building files (Parquet) over HTTPS: see building/DuckDbBuildingReader. -->
+        <dependency>
+            <groupId>org.duckdb</groupId>
+            <artifactId>duckdb_jdbc</artifactId>
+            <version>2.0.0.1</version>
+        </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

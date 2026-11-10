@@ -1,0 +1,89 @@
+name: Build building index
+
+# The backend reads the buildings around one place straight from the public Overture Maps bucket
+# (home assessment, "which building is this"). This builds the index of which part of the world each
+# building file covers and uploads it to R2 as buildings/index.json; the backend picks it up within
+# a few hours. See tool/building_index.py.
+#
+# Overture publishes a new release about once a month and removes old ones after a while, so this
+# runs every week and does nothing when the index already belongs to the newest release.
+#
+# Needs the repository secrets R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET
+# (the same as the wind workflows).
+
+on:
+  schedule:
+    - cron: "41 5 * * 2"
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Overture release (empty: the newest)"
+        type: string
+        default: ""
+      force:
+        description: "Build even when the index already belongs to this release"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: building-index
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      BUCKET: ${{ secrets.R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find the release
+        run: |
+          release="${{ inputs.release }}"
+          if [ -z "$release" ]; then
+            release=$(AWS_ACCESS_KEY_ID= AWS_SECRET_ACCESS_KEY= AWS_DEFAULT_REGION=us-west-2 \
+              aws s3 ls s3://overturemaps-us-west-2/release/ --no-sign-request | awk '{print $2}' | tr -d / | sort -V | tail -1)
+          fi
+          [ -n "$release" ] || { echo "No Overture release found"; exit 1; }
+          echo "RELEASE=$release" >> "$GITHUB_ENV"
+          echo "Overture release: $release"
+      - name: Compare with the index in R2
+        run: |
+          current=""
+          if aws s3 cp "s3://$BUCKET/buildings/index.json" current.json --endpoint-url "$ENDPOINT" --only-show-errors; then
+            current=$(python3 -c "import json; print(json.load(open('current.json'))['release'])")
+          fi
+          echo "Index in R2: ${current:-none}"
+          if [ "$current" = "$RELEASE" ] && [ "${{ inputs.force }}" != "true" ]; then
+            echo "SKIP=1" >> "$GITHUB_ENV"
+            echo "The index already belongs to $RELEASE, nothing to do." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Install DuckDB
+        if: env.SKIP != '1'
+        run: pip install --quiet duckdb
+      - name: Build the index
+        if: env.SKIP != '1'
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: python3 tool/building_index.py "$RELEASE" index.json
+      - name: Upload
+        if: env.SKIP != '1'
+        run: |
+          ok=""
+          for i in 1 2 3; do
+            if aws s3 cp index.json "s3://$BUCKET/buildings/index.json" \
+                 --endpoint-url "$ENDPOINT" --content-type application/json --only-show-errors; then
+              ok=1; break
+            fi
+            sleep 10
+          done
+          [ -n "$ok" ] || { echo "Upload failed"; exit 1; }
+          files=$(python3 -c "import json; print(len(json.load(open('index.json'))['files']))")
+          echo "Building index for Overture $RELEASE uploaded: $files files, $(stat -c %s index.json) bytes." >> "$GITHUB_STEP_SUMMARY"

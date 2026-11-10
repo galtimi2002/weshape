@@ -110,6 +110,14 @@ weshape:
   bio:
     # Biomass rasters and tiles, same bucket, built by "Build biomass map data".
     prefix: bio/
+  buildings:
+    # Which Overture Maps building file covers which area; same bucket, built every week by
+    # "Build building index". The files themselves are read from Overture's public bucket.
+    index-key: buildings/index.json
+    duckdb:
+      # DuckDB works outside the Java heap: keep it small on the 512 MB plan.
+      memory-limit: ${BUILDINGS_DUCKDB_MEMORY:128MB}
+      threads: 2
 
 logging:
   level:
