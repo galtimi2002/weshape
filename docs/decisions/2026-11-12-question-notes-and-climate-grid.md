@@ -17,7 +17,7 @@
     kinőtt fa is megváltoztathatja, mennyi energiát nyerhetsz. Jelöld be, és a valódi helyzeteddel
     számolunk."
   - **"Mi a legfontosabb neked?"** (stays) → "Ez alapján rangsoroljuk a megoldásokat: kevés kezdő
-    pénz, alacsony számlák, megbízható áram, a környezet kímélése, vagy mindenből egy kicsit."
+    pénz, alacsony számlák, a környezet kímélése, vagy mindenből egy kicsit."
     How the priorities are calculated is still to be discussed.
 
 ## 2. Climate data (degree-days): finer where the land is uneven
@@ -39,4 +39,5 @@
   (step, answer field, texts in all 25 languages). Power cuts are not part of the calculation.
 - **Backend:** `Battery` (expert section 4) stays in the code, unused by the assessment, in case it
   is needed later.
-- **Note:** the "reliable supply" priority stays; it no longer has a power cuts answer behind it.
+- **The "reliable supply" priority is removed too** ("Megbízható ellátás"). Four answers remain:
+  lower upfront cost, lower running cost, lower environmental impact, balanced.

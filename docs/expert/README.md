@@ -41,7 +41,7 @@ source, and `ExpertNumbersTest` checks the code against the expert's own worked 
 | 5 Space | Spaces, sizes, roof facing | kWp on the roof, orientation, dust | `SolarPv` |
 | 6 Ownership | Ownership | Tenants: only options without landlord works | `Eligibility.filter` |
 | 7 Upkeep | Hands-on | "No upkeep": no wind, hydro, wood, biogas | `Eligibility.filter` |
-| 8 Profile weights | Priority | **Not answered**: the expert wants to see all five sets first | waiting |
+| 8 Profile weights | Priority | **Not answered**: the expert wants to see all the sets first. Now **four** answers: "reliable supply" was removed with the power cuts question | waiting |
 | 9 River, wind, animals, biomass | Follow-ups, maps | Hydro, wind, biogas, boiler rules | `Hydro`, `Wind`, `Eligibility` |
 | 10 Areas to keep free | Exclude question | Roof edge strips (0.5 m, 1 m around windows) | to do |
 | 11 Costs, lifetimes | Currency, bills | Payback | to do: partner companies' prices, else a range; not researched (`docs/decisions/2026-11-12-prices-as-ranges.md`) |
