@@ -44,7 +44,7 @@ source, and `ExpertNumbersTest` checks the code against the expert's own worked 
 | 8 Profile weights | Priority | **Not answered**: the expert wants to see all five sets first | waiting |
 | 9 River, wind, animals, biomass | Follow-ups, maps | Hydro, wind, biogas, boiler rules | `Hydro`, `Wind`, `Eligibility` |
 | 10 Areas to keep free | Exclude question | Roof edge strips (0.5 m, 1 m around windows) | to do |
-| 11 Costs, lifetimes | Currency, bills | Payback | to do (needs the reference values) |
+| 11 Costs, lifetimes | Currency, bills | Payback | to do: prices as ranges, not researched (`docs/decisions/2026-11-12-prices-as-ranges.md`) |
 | 12 Permits | (country) | "Typical requirements, confirm locally" | to do (country table) |
 
 ## Our own research (not from the expert)
@@ -80,7 +80,6 @@ Marked `[Judgement, WeShape]` in the code:
 - **Solar self-consumption for other sizes.** Larger systems: share × 1 ÷ ratio; smaller: kept;
   battery gain in proportion below 0.5 kWh/kWp. See `docs/research/self-consumption.md`.
 - **CO₂ supply chain outside the UK.** Half to double the UK value. See `docs/research/co2.md`.
-- **Mapping the app's "power cuts" answer onto minutes per year.** To do.
 - **Mapping the "wind exposure" answer onto the terrain table.** To do.
 
 ## Still missing
@@ -90,4 +89,6 @@ Marked `[Judgement, WeShape]` in the code:
 - **Data:**
   - degree-days by place (climate zone; turning 3 months of bills into a year);
   - national building typologies (TABULA);
-  - a country table for permits, plug-in solar and incentives.
+  - a country table for permits and plug-in solar;
+  - old non-condensing gas boiler efficiency.
+- **Not researched, by decision:** prices (given as ranges); power cuts (not calculated for now).
