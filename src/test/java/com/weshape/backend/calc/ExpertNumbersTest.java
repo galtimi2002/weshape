@@ -36,6 +36,8 @@ class ExpertNumbersTest {
             // 3 m × 10 L/s = 150 W: both limits met, still too little power.
             assertThat(Hydro.assess(3, 10, 100, 100).reasons()).containsExactly(Hydro.Reason.POWER_TOO_LOW);
             assertThat(Hydro.assess(6, 10, 100, 100).shown()).isTrue(); // exactly 300 W
+            // 299 W: head and flow are fine, the power is just under the limit.
+            assertThat(Hydro.assess(5.98, 10, 100, 100).reasons()).containsExactly(Hydro.Reason.POWER_TOO_LOW);
             assertThat(Hydro.assess(5, 20, 501, 100).reasons()).containsExactly(Hydro.Reason.STREAM_TOO_FAR);
             assertThat(Hydro.assess(5, 20, 100, 301).reasons()).containsExactly(Hydro.Reason.PIPE_TOO_LONG);
             assertThatThrownBy(() -> Hydro.powerW(-1, 5)).isInstanceOf(IllegalArgumentException.class);
@@ -137,6 +139,12 @@ class ExpertNumbersTest {
         @DisplayName("thresholds: under 60 min none, 60–300 optional, over 300 or monthly backup, over 20 h a month hybrid")
         void thresholds() {
             assertThat(Battery.advise(12, false, false)).isEqualTo(Battery.Advice.NONE); // Germany
+            // The edges: 59 min none, 60 optional, 300 still optional, 20 h a month still a backup battery.
+            assertThat(Battery.advise(59, false, false)).isEqualTo(Battery.Advice.NONE);
+            assertThat(Battery.advise(60, false, false)).isEqualTo(Battery.Advice.OPTIONAL);
+            assertThat(Battery.advise(300, false, false)).isEqualTo(Battery.Advice.OPTIONAL);
+            assertThat(Battery.advise(20 * 60 * 12, false, false)).isEqualTo(Battery.Advice.BACKUP);
+            assertThat(Battery.advise(20 * 60 * 12 + 1, false, false)).isEqualTo(Battery.Advice.HYBRID_MAIN);
             assertThat(Battery.advise(229, false, false)).isEqualTo(Battery.Advice.OPTIONAL); // Romania 2024
             assertThat(Battery.advise(301, false, false)).isEqualTo(Battery.Advice.BACKUP);
             assertThat(Battery.advise(30, true, false)).isEqualTo(Battery.Advice.BACKUP);
