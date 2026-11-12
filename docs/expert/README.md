@@ -55,6 +55,9 @@ What the expert input does not cover, researched by us with sources, in `docs/re
 |---|---|---|
 | Heat pump efficiency by climate zone; air conditioners and heat pump water heaters in hot zones | `docs/research/heat-pumps.md` | `HeatPump` |
 | Boiler and stove efficiency (pellet, log, wood stoves, open fire, condensing gas) | `docs/research/boilers.md` | `Boiler` |
+| Energy in firewood per stacked m³ by kind of wood | `docs/research/firewood.md` | `Firewood` |
+
+Decisions agreed with Timi are in `docs/decisions/`.
 
 ## Our own choices that an expert must confirm
 
