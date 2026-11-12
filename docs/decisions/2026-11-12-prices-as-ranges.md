@@ -26,5 +26,5 @@
 
 ## Also decided
 
-- **Power cuts are not calculated for now.** The mapping of the "power cuts" answer onto minutes
-  per year is not done.
+- **Power cuts:** the question is removed from the app; see
+  `2026-11-12-question-notes-and-climate-grid.md`, section 3.

@@ -11,8 +11,14 @@
 - **Same idea as** the why-note agreed for firewood (`2026-11-12-firewood-and-missing-data.md`).
 - **Rules:** one sentence, plain words, no numbers or sources; in all 25 languages, Hungarian as the
   reference meaning.
-- **Status:** not built in the app. The list of questions and their notes is drafted first and agreed
-  with Timi.
+- **Status:** not built in the app. Drafted for all main questions (Hungarian), being agreed with
+  Timi. Agreed so far:
+  - **"Van a helyeden valami új, ami még nincs a térképen?"** → "Egy új épület, egy fészer vagy egy
+    kinőtt fa is megváltoztathatja, mennyi energiát nyerhetsz. Jelöld be, és a valódi helyzeteddel
+    számolunk."
+  - **"Mi a legfontosabb neked?"** (stays) → "Ez alapján rangsoroljuk a megoldásokat: kevés kezdő
+    pénz, alacsony számlák, megbízható áram, a környezet kímélése, vagy mindenből egy kicsit."
+    How the priorities are calculated is still to be discussed.
 
 ## 2. Climate data (degree-days): finer where the land is uneven
 
@@ -26,3 +32,11 @@
 - **Size:** a few MB in total (see the storage estimate given to Timi: all refreshed data under
   about 10 MB with one backup copy).
 - **Status:** not built; part of the data refresh work.
+
+## 3. The power cuts question is removed
+
+- **Decision:** the question "Milyen gyakran megy el az áram?" is taken out of the app completely
+  (step, answer field, texts in all 25 languages). Power cuts are not part of the calculation.
+- **Backend:** `Battery` (expert section 4) stays in the code, unused by the assessment, in case it
+  is needed later.
+- **Note:** the "reliable supply" priority stays; it no longer has a power cuts answer behind it.
