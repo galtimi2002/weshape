@@ -16,6 +16,9 @@ counted as CO₂ by their warming effect over 100 years).
   Venezuela 86–180, Montenegro 264–422).
 - **Left out:** Central African Republic (0 g in the data, which cannot be right: even hydro power
   has lifecycle emissions) and Western Sahara (last data 2009).
+- **Refreshed once a year** without a new release: the "Refresh calculation data" workflow rebuilds
+  it with `tool/calc_electricity_co2.py`, checks it and uploads it to R2; the backend picks it up
+  (`docs/decisions/2026-11-13-data-refresh.md`).
 - **Country not in the table:** the world average, 458 (458–483, 2023–2025) [C1]; the result is
   marked as "country not known".
 

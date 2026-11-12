@@ -1,21 +1,18 @@
 package com.weshape.backend.calc;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 
 /**
  * Greenhouse gases per kWh of electricity (by country) and of fuel, in g CO₂e. Our own research
  * (docs/research/co2.md).
  *
  * <p>Electricity: lifecycle g CO₂e per kWh generated, Ember via Our World in Data [C1], in
- * {@code calc/electricity-co2.csv}. Fuels: burning, IPCC 2006 defaults for homes [C2] with the
+ * {@code calc/electricity-co2.csv}, refreshed from R2 once a year
+ * ({@link ElectricityTable}). Fuels: burning, IPCC 2006 defaults for homes [C2] with the
  * IPCC AR6 warming potentials [C3], plus the supply chain (extraction, processing, transport) from the
  * UK government factors [C4]. CO₂ from wood counts as zero, as in national inventories [C2]; it is
  * given separately by {@link #biogenicCo2PerKwh}.
@@ -69,7 +66,11 @@ public final class Co2 {
     public record Electricity(Range gPerKwh, int year, boolean known) {
     }
 
-    private static final Map<String, Electricity> TABLE = load("calc/electricity-co2.csv");
+    /** The copy shipped with the app. */
+    public static final String BUNDLED = "calc/electricity-co2.csv";
+    private static final ElectricityTable BUNDLED_TABLE = ElectricityTable.parse(readResource(BUNDLED));
+    /** The table in use: the bundled one until {@code CalcData} loads a newer one from R2. */
+    private static volatile ElectricityTable table = BUNDLED_TABLE;
 
     private Co2() {
     }
@@ -89,13 +90,28 @@ public final class Co2 {
 
     /** Electricity in a country (ISO 3166 two letters); the world average when it is not in the table. */
     public static Electricity electricity(String country) {
-        Electricity e = country == null ? null : TABLE.get(country.toUpperCase(Locale.ROOT));
+        Electricity e = country == null ? null : table.countries().get(country.toUpperCase(Locale.ROOT));
         return e != null ? e : new Electricity(WORLD_ELECTRICITY, 2025, false);
     }
 
-    /** Number of countries in the table. */
+    /** Number of countries in the table in use. */
     public static int countries() {
-        return TABLE.size();
+        return table.countries().size();
+    }
+
+    /** Version of the table in use (its "# version:" line). */
+    public static String electricityVersion() {
+        return table.version();
+    }
+
+    /** Puts a checked table in use (a newer one from R2). */
+    public static void useElectricity(ElectricityTable newer) {
+        table = java.util.Objects.requireNonNull(newer);
+    }
+
+    /** Back to the copy shipped with the app. */
+    public static void useBundledElectricity() {
+        table = BUNDLED_TABLE;
     }
 
     /** kg CO₂e for an amount of energy. */
@@ -103,22 +119,12 @@ public final class Co2 {
         return kwh.times(gPerKwh).times(0.001);
     }
 
-    private static Map<String, Electricity> load(String resource) {
-        Map<String, Electricity> map = new HashMap<>();
+    private static String readResource(String resource) {
         try (InputStream in = Co2.class.getClassLoader().getResourceAsStream(resource)) {
             if (in == null) throw new IllegalStateException("Missing " + resource);
-            BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
-            String line;
-            while ((line = r.readLine()) != null) {
-                if (line.startsWith("#") || line.startsWith("country") || line.isBlank()) continue;
-                String[] p = line.split(",");
-                map.put(p[0], new Electricity(
-                        new Range(Double.parseDouble(p[2]), Double.parseDouble(p[3]), Double.parseDouble(p[4])),
-                        Integer.parseInt(p[1]), true));
-            }
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        return Map.copyOf(map);
     }
 }

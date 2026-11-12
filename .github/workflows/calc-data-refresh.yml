@@ -1,0 +1,104 @@
+name: Refresh calculation data
+
+# Once a year: rebuilds the tables the calculations use from their public sources, checks them,
+# and uploads them to R2, where the backend picks them up within 6 hours (no new release needed).
+# Each upload replaces the table; the one before is kept once, as data/<name>.prev.csv, so it can
+# be put back with "restore previous". See docs/decisions/2026-11-13-data-refresh.md.
+#
+# Now: data/electricity-co2.csv (g CO2e per kWh by country; Ember via Our World in Data).
+#
+# When a check fails (too few countries, or a country changed by more than 50% and 50 g), nothing is
+# uploaded, the run turns red and GitHub e-mails you. Look at the run summary; if the change is real
+# (a dry year for a hydro country, say), run it by hand with "force" ticked.
+#
+# Needs the repository secrets R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET.
+
+on:
+  schedule:
+    - cron: "29 5 15 6 *"   # 15 June, 05:29 UTC: Ember's yearly data is out by then
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Upload even when a country changed by more than 50%"
+        type: boolean
+        default: false
+      restore_previous:
+        description: "Put the previous table back instead (undo the last upload)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: calc-data-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      BUCKET: ${{ secrets.R2_BUCKET }}
+      KEY: data/electricity-co2.csv
+      PREV: data/electricity-co2.prev.csv
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore the previous table
+        if: inputs.restore_previous
+        run: |
+          aws s3 cp "s3://$BUCKET/$PREV" "s3://$BUCKET/$KEY" --endpoint-url "$ENDPOINT" --only-show-errors
+          echo "The previous electricity CO2 table is back in use (within 6 hours)." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Get the source
+        if: ${{ !inputs.restore_previous }}
+        run: |
+          git clone --quiet --depth 1 https://github.com/owid/energy-data.git owid
+          sha=$(git -C owid rev-parse --short=8 HEAD)
+          day=$(git -C owid log -1 --format=%cs)
+          echo "VERSION=owid-energy-data $sha ($day)" >> "$GITHUB_ENV"
+
+      - name: Compare with the table in use
+        if: ${{ !inputs.restore_previous }}
+        run: |
+          if ! aws s3 cp "s3://$BUCKET/$KEY" current.csv --endpoint-url "$ENDPOINT" --only-show-errors; then
+            echo "No table in R2 yet: comparing with the copy in the app."
+            cp src/main/resources/calc/electricity-co2.csv current.csv
+          fi
+          current=$(sed -n 's/^# version: //p' current.csv)
+          echo "In use: $current. Source now: $VERSION."
+          if [ "$current" = "$VERSION" ] && [ "${{ inputs.force }}" != "true" ]; then
+            echo "SKIP=1" >> "$GITHUB_ENV"
+            echo "The table already comes from $VERSION, nothing to do." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Build and check
+        if: ${{ !inputs.restore_previous && env.SKIP != '1' }}
+        run: |
+          force=""
+          [ "${{ inputs.force }}" = "true" ] && force="--force"
+          python3 tool/calc_electricity_co2.py owid/owid-energy-data.csv new.csv \
+            --version "$VERSION" --current current.csv $force
+
+      - name: Upload
+        if: ${{ !inputs.restore_previous && env.SKIP != '1' }}
+        run: |
+          # Keep the table in use once, then replace it.
+          if aws s3 ls "s3://$BUCKET/$KEY" --endpoint-url "$ENDPOINT" > /dev/null 2>&1; then
+            aws s3 cp "s3://$BUCKET/$KEY" "s3://$BUCKET/$PREV" --endpoint-url "$ENDPOINT" --only-show-errors
+          fi
+          ok=""
+          for i in 1 2 3; do
+            if aws s3 cp new.csv "s3://$BUCKET/$KEY" --endpoint-url "$ENDPOINT" \
+                 --content-type text/csv --only-show-errors; then
+              ok=1; break
+            fi
+            sleep 10
+          done
+          [ -n "$ok" ] || { echo "Upload failed"; exit 1; }
+          echo "Uploaded $KEY ($VERSION, $(stat -c %s new.csv) bytes). The backend uses it within 6 hours." >> "$GITHUB_STEP_SUMMARY"

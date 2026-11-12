@@ -1,4 +1,5 @@
 # Lifecycle gCO2e per kWh of electricity generated in the country (imports and grid losses not included).
+# version: owid-energy-data f8de88a4 (2026-10-01)
 # Source: Ember, Yearly Electricity Data, via Our World in Data energy-data (carbon_intensity_elec), CC BY 4.0;
 # github.com/owid/energy-data commit f8de88a4 (1 October 2026).
 # typical: the latest year; low/high: lowest/highest of the last three years with data.
