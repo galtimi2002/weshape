@@ -56,6 +56,7 @@ What the expert input does not cover, researched by us with sources, in `docs/re
 | Heat pump efficiency by climate zone; air conditioners and heat pump water heaters in hot zones | `docs/research/heat-pumps.md` | `HeatPump` |
 | Boiler and stove efficiency (pellet, log, wood stoves, open fire, condensing gas) | `docs/research/boilers.md` | `Boiler` |
 | Energy in firewood per stacked m³ by kind of wood | `docs/research/firewood.md` | `Firewood` |
+| Share of solar electricity used at home, with and without a battery | `docs/research/self-consumption.md` | `SelfConsumption` |
 
 Decisions agreed with Timi are in `docs/decisions/`.
 
@@ -75,6 +76,8 @@ Marked `[Judgement, WeShape]` in the code:
   (0.861, 1.248); ground-source the same in every zone. See `docs/research/heat-pumps.md`.
 - **Boiler and stove ranges without a field source.** The log boiler's low end, the stoves and the
   open fire. See `docs/research/boilers.md`.
+- **Solar self-consumption for other sizes.** Larger systems: share × 1 ÷ ratio; smaller: kept;
+  battery gain in proportion below 0.5 kWh/kWp. See `docs/research/self-consumption.md`.
 - **Mapping the app's "power cuts" answer onto minutes per year.** To do.
 - **Mapping the "wind exposure" answer onto the terrain table.** To do.
 
