@@ -44,7 +44,7 @@ source, and `ExpertNumbersTest` checks the code against the expert's own worked 
 | 8 Profile weights | Priority | **Not answered**: the expert wants to see all five sets first | waiting |
 | 9 River, wind, animals, biomass | Follow-ups, maps | Hydro, wind, biogas, boiler rules | `Hydro`, `Wind`, `Eligibility` |
 | 10 Areas to keep free | Exclude question | Roof edge strips (0.5 m, 1 m around windows) | to do |
-| 11 Costs, lifetimes | Currency, bills | Payback | to do: prices as ranges, not researched (`docs/decisions/2026-11-12-prices-as-ranges.md`) |
+| 11 Costs, lifetimes | Currency, bills | Payback | to do: partner companies' prices, else a range; not researched (`docs/decisions/2026-11-12-prices-as-ranges.md`) |
 | 12 Permits | (country) | "Typical requirements, confirm locally" | to do (country table) |
 
 ## Our own research (not from the expert)
@@ -91,4 +91,4 @@ Marked `[Judgement, WeShape]` in the code:
   - national building typologies (TABULA);
   - a country table for permits and plug-in solar;
   - old non-condensing gas boiler efficiency.
-- **Not researched, by decision:** prices (given as ranges); power cuts (not calculated for now).
+- **Not researched, by decision:** prices (partner companies' prices, else a range); power cuts (not calculated for now).
