@@ -57,6 +57,7 @@ What the expert input does not cover, researched by us with sources, in `docs/re
 | Boiler and stove efficiency (pellet, log, wood stoves, open fire, condensing gas) | `docs/research/boilers.md` | `Boiler` |
 | Energy in firewood per stacked m³ by kind of wood | `docs/research/firewood.md` | `Firewood` |
 | Share of solar electricity used at home, with and without a battery | `docs/research/self-consumption.md` | `SelfConsumption` |
+| CO₂ per kWh: electricity in 212 countries; gas, oil, coal, wood | `docs/research/co2.md` | `Co2` |
 
 Decisions agreed with Timi are in `docs/decisions/`.
 
@@ -78,6 +79,7 @@ Marked `[Judgement, WeShape]` in the code:
   open fire. See `docs/research/boilers.md`.
 - **Solar self-consumption for other sizes.** Larger systems: share × 1 ÷ ratio; smaller: kept;
   battery gain in proportion below 0.5 kWh/kWp. See `docs/research/self-consumption.md`.
+- **CO₂ supply chain outside the UK.** Half to double the UK value. See `docs/research/co2.md`.
 - **Mapping the app's "power cuts" answer onto minutes per year.** To do.
 - **Mapping the "wind exposure" answer onto the terrain table.** To do.
 
