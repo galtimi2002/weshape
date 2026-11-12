@@ -47,6 +47,14 @@ source, and `ExpertNumbersTest` checks the code against the expert's own worked 
 | 11 Costs, lifetimes | Currency, bills | Payback | to do (needs the reference values) |
 | 12 Permits | (country) | "Typical requirements, confirm locally" | to do (country table) |
 
+## Our own research (not from the expert)
+
+What the expert input does not cover, researched by us with sources, in `docs/research/`:
+
+| Topic | File | Code |
+|---|---|---|
+| Heat pump efficiency by climate zone; air conditioners and heat pump water heaters in hot zones | `docs/research/heat-pumps.md` | `HeatPump` |
+
 ## Our own choices that an expert must confirm
 
 Marked `[Judgement, WeShape]` in the code:
@@ -59,6 +67,8 @@ Marked `[Judgement, WeShape]` in the code:
 - **Heat of hot panels.** Not counted on top of PVGIS, which already models it; only extra dust
   (2–6%) is counted in dusty places.
 - **Tenants.** Kept: plug-in panels, clean cooking and a portable battery.
+- **Heat pumps in cold and mild zones.** The measured German values scaled by the lab climate ratios
+  (0.861, 1.248); ground-source the same in every zone. See `docs/research/heat-pumps.md`.
 - **Mapping the app's "power cuts" answer onto minutes per year.** To do.
 - **Mapping the "wind exposure" answer onto the terrain table.** To do.
 
