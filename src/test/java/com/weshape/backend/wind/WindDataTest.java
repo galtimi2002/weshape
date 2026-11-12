@@ -50,7 +50,7 @@ class WindDataTest {
     @DisplayName("gives the wind by height for a place, with 150 m worked out from 100 and 200 m")
     void point(boolean big) throws Exception {
         TestCogWriter.writeWorld(dir, big);
-        WindData wind = new WindData(new FileRangeSource(dir), "wind/gwa/");
+        WindData wind = ready(new WindData(new FileRangeSource(dir), "wind/gwa/"));
         assertThat(wind.available()).isTrue();
         WindPoint p = wind.point(46.77, 23.59);
         int col = (int) Math.floor((23.59 + 180) / 0.25);
@@ -82,7 +82,7 @@ class WindDataTest {
         index.putLong(TileIndex.key(5, 17, 11)).putLong(first.length).putInt(second.length);
         Files.write(dir.resolve("wind/tiles/speed.index"), index.array());
 
-        WindData wind = new WindData(new FileRangeSource(dir), "wind/gwa/");
+        WindData wind = ready(new WindData(new FileRangeSource(dir), "wind/gwa/"));
         assertThat(wind.tile("speed", 3, 4, 2)).isEqualTo(first);
         assertThat(wind.tile("speed", 5, 17, 11)).isEqualTo(second);
         BufferedImage missing = ImageIO.read(new ByteArrayInputStream(wind.tile("speed", 3, 4, 3)));
@@ -91,6 +91,12 @@ class WindDataTest {
         BufferedImage drawn = ImageIO.read(new ByteArrayInputStream(wind.tile("height-100", 0, 0, 0)));
         assertThat(drawn.getRGB(px(23.59), py(46.77, 0)) >>> 24).isEqualTo(255);
         assertThatThrownBy(() -> TileIndex.parse(new byte[] {1, 2, 3})).isInstanceOf(java.io.IOException.class);
+    }
+
+    /** The data with its file headers read, so nothing is still open when the test folder is deleted. */
+    private static WindData ready(WindData wind) throws InterruptedException {
+        wind.awaitWarmUp();
+        return wind;
     }
 
     private static byte[] concat(byte[] a, byte[] b) {
@@ -104,7 +110,7 @@ class WindDataTest {
     void withoutPowerDensity() throws Exception {
         TestCogWriter.writeWorld(dir, true);
         Files.delete(dir.resolve("wind/gwa/pd100.tif"));
-        WindData wind = new WindData(new FileRangeSource(dir), "wind/gwa/");
+        WindData wind = ready(new WindData(new FileRangeSource(dir), "wind/gwa/"));
         WindPoint p = wind.point(46.77, 23.59);
         assertThat(p.speeds()).hasSize(5);
         assertThat(p.powerDensity100()).isNull();
@@ -115,7 +121,7 @@ class WindDataTest {
     @DisplayName("open sea and places outside the atlas have no wind data")
     void noData() throws Exception {
         TestCogWriter.writeWorld(dir, true);
-        WindData wind = new WindData(new FileRangeSource(dir), "wind/gwa/");
+        WindData wind = ready(new WindData(new FileRangeSource(dir), "wind/gwa/"));
         assertThatThrownBy(() -> wind.point(35, 5)).isInstanceOf(NoWindDataException.class);
         assertThatThrownBy(() -> wind.point(-50, 5)).isInstanceOf(NoWindDataException.class);
         assertThatThrownBy(() -> wind.point(85, 5)).isInstanceOf(NoWindDataException.class);
@@ -125,7 +131,7 @@ class WindDataTest {
     @DisplayName("map tiles: coloured over land, transparent where there is no data, from the matching overview")
     void tiles() throws Exception {
         TestCogWriter.writeWorld(dir, true);
-        WindData wind = new WindData(new FileRangeSource(dir), "wind/gwa/");
+        WindData wind = ready(new WindData(new FileRangeSource(dir), "wind/gwa/"));
         CogFile ref = new CogFile(new FileRangeSource(dir), "wind/gwa/ws100.tif");
         // 1.4° per map pixel at zoom 0: the 1° overview; 0.7° at zoom 1: the 0.5° one; then full resolution.
         assertThat(WindData.levelFor(ref, 0)).isEqualTo(2);
@@ -159,7 +165,7 @@ class WindDataTest {
         WindData none = new WindData((RangeSource) null, "wind/gwa/");
         assertThat(none.available()).isFalse();
         assertThatThrownBy(() -> none.point(46, 23)).isInstanceOf(WindData.WindUnavailableException.class);
-        WindData missing = new WindData(new FileRangeSource(Files.createDirectories(dir.resolve("empty"))), "wind/gwa/");
+        WindData missing = ready(new WindData(new FileRangeSource(Files.createDirectories(dir.resolve("empty"))), "wind/gwa/"));
         assertThat(missing.available()).isFalse();
         assertThatThrownBy(() -> new FileRangeSource(dir).read("nope.tif", 0, 10)).isInstanceOf(FileNotFoundException.class);
     }

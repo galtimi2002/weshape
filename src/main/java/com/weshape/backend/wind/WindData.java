@@ -44,6 +44,7 @@ public class WindData {
     private final String prefix;
     private final String tilesPrefix;
     private final ExecutorService readers = Executors.newVirtualThreadPerTaskExecutor();
+    private final Thread warmUp;
     /** Per layer: when its stored tiles were last looked for, and their index once found. */
     private final Map<String, Long> storedCheckedAt = new ConcurrentHashMap<>();
     private final Map<String, TileIndex> stored = new ConcurrentHashMap<>();
@@ -77,7 +78,16 @@ public class WindData {
         log.info(source == null ? "Wind map: no data source configured" : "Wind map: data from " + source.describe());
         if (source != null) {
             // Read the file headers now, so the first click on the map does not wait for them.
-            Thread.ofVirtual().name("wind-warm-up").start(() -> FILES.forEach(this::file));
+            warmUp = Thread.ofVirtual().name("wind-warm-up").start(() -> FILES.forEach(this::file));
+        } else {
+            warmUp = null;
+        }
+    }
+
+    /** Waits until the file headers are read (tests: on Windows an open file cannot be deleted). */
+    void awaitWarmUp() throws InterruptedException {
+        if (warmUp != null) {
+            warmUp.join();
         }
     }
 
