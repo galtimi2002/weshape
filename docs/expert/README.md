@@ -54,6 +54,7 @@ What the expert input does not cover, researched by us with sources, in `docs/re
 | Topic | File | Code |
 |---|---|---|
 | Heat pump efficiency by climate zone; air conditioners and heat pump water heaters in hot zones | `docs/research/heat-pumps.md` | `HeatPump` |
+| Boiler and stove efficiency (pellet, log, wood stoves, open fire, condensing gas) | `docs/research/boilers.md` | `Boiler` |
 
 ## Our own choices that an expert must confirm
 
@@ -69,6 +70,8 @@ Marked `[Judgement, WeShape]` in the code:
 - **Tenants.** Kept: plug-in panels, clean cooking and a portable battery.
 - **Heat pumps in cold and mild zones.** The measured German values scaled by the lab climate ratios
   (0.861, 1.248); ground-source the same in every zone. See `docs/research/heat-pumps.md`.
+- **Boiler and stove ranges without a field source.** The log boiler's low end, the stoves and the
+  open fire. See `docs/research/boilers.md`.
 - **Mapping the app's "power cuts" answer onto minutes per year.** To do.
 - **Mapping the "wind exposure" answer onto the terrain table.** To do.
 
