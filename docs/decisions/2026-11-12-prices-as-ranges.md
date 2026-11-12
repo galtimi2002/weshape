@@ -17,6 +17,22 @@
 - **Not live:** prices are not fetched while the user waits; that would be slow, can fail, and
   would give a different result for the same home from one day to the next.
 
+## How prices are shown (13 November 2026)
+
+- **Calculated in euros, shown in the user's currency.** Always a range; average exchange rates are
+  enough, no exact currency arithmetic is needed.
+- **Labour at the country's average level.**
+- **Split in two:** the result shows separately
+  - **equipment:** what the system itself costs;
+  - **installation (labour):** what the work costs;
+  - and the total.
+  Someone who can do the work can see what it costs them without paying for the labour.
+- **When the work must be done by a professional** (for example, connecting rooftop solar to the grid
+  needs a licensed electrician in many countries; heat pump refrigerant work needs a certified
+  installer in the EU), the result says so next to the labour part. To be filled in per option and
+  country with the country table.
+- **To ask the expert:** the share of labour in the price, per option.
+
 ## What this changes
 
 - Removed from the "still missing" list: exchange rates, electricity prices and feed-in tariffs by
