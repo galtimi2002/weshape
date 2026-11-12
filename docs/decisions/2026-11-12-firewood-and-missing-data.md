@@ -50,6 +50,18 @@ List exactly what was missing, so the person sees whether it was one thing or ma
 
 ## Status
 
-Agreed; not built yet. To build:
-- app: the questions, the notes, the warning, the result list (25 languages);
-- backend: done for the energy (`Firewood`).
+**Built in the app (13 November 2026), agreed with Timi:**
+- the m³ note under the amount; "What wood do you burn?" and "How much does 1 m³ of firewood
+  cost?" (with the currency picker), shown once an amount is entered;
+- no separate why-note: the step's own note already says it ("Ebből számoljuk ki, mennyi hőt kapsz
+  most, és mennyibe kerül neked.");
+- the soft yellow note: at once for "Don't know" (kind of wood: "Átlagos fával számolunk."); for an
+  empty amount or price on the first "Continue", which then stays on the page; the second press goes
+  on. Text: "Nem baj, de így az eredmény kevésbé lesz pontos." plus a tip ("Egy hozzávetőleges szám
+  is sokat segít, például „kb. 8 m³”." / "Egy hozzávetőleges ár is sokat segít.");
+- the same yellow note with a tip after "Don't know" in: era, renovation, insulation (walls, roof,
+  basement), windows, river access;
+- no note (not missing data): "I don't know the exact numbers" (electricity), "you check it"
+  (spaces), "not sure it can carry it".
+
+**Still to build:** the list of missing data on the result page, with the result page.
