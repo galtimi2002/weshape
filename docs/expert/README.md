@@ -58,6 +58,7 @@ What the expert input does not cover, researched by us with sources, in `docs/re
 | Energy in firewood per stacked m³ by kind of wood | `docs/research/firewood.md` | `Firewood` |
 | Share of solar electricity used at home, with and without a battery | `docs/research/self-consumption.md` | `SelfConsumption` |
 | CO₂ per kWh: electricity in 212 countries; gas, oil, coal, wood | `docs/research/co2.md` | `Co2` |
+| Equipment prices without installation (for the report) | `docs/research/equipment-prices.md` | to do |
 
 Decisions agreed with Timi are in `docs/decisions/`. Data that changes over time is refreshed from R2 without a new
 release (`docs/decisions/2026-11-13-data-refresh.md`).

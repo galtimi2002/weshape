@@ -19,6 +19,9 @@
 
 ## How prices are shown (13 November 2026)
 
+> **Changed on 14 November 2026:** the report shows the **equipment price only**; installation is
+> not calculated (it depends on the company, or the person does it). See `2026-11-14-report.md`.
+
 - **Calculated in euros, shown in the user's currency.** Always a range; average exchange rates are
   enough, no exact currency arithmetic is needed.
 - **Labour at the country's average level.**
