@@ -42,5 +42,5 @@
 
 ## Also decided
 
-- **Power cuts:** the question is removed from the app; see
-  `2026-11-12-question-notes-and-climate-grid.md`, section 3.
+- **Power cuts:** removed on 12 November, back on 14 November; see
+  `2026-11-14-power-cuts-back.md`.

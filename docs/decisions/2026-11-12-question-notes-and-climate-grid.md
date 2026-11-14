@@ -50,11 +50,9 @@
   about 10 MB with one backup copy).
 - **Status:** not built; part of the data refresh work.
 
-## 3. The power cuts question is removed
+## 3. The power cuts question (removed 12 November, back 14 November)
 
-- **Decision:** the question "Milyen gyakran megy el az áram?" is taken out of the app completely
-  (step, answer field, texts in all 25 languages). Power cuts are not part of the calculation.
-- **Backend:** `Battery` (expert section 4) stays in the code, unused by the assessment, in case it
-  is needed later.
-- **The "reliable supply" priority is removed too** ("Megbízható ellátás"). Four answers remain:
-  lower upfront cost, lower running cost, lower environmental impact, balanced.
+- Removed on 12 November together with the "reliable supply" priority.
+- **Back on 14 November** with two more questions (how long, full independence) and a clear use:
+  see `2026-11-14-power-cuts-back.md`. The "reliable supply" priority stays removed; full
+  independence is a separate question instead.

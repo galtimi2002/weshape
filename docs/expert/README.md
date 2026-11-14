@@ -37,7 +37,7 @@ source, and `ExpertNumbersTest` checks the code against the expert's own worked 
 | Climate zones | (from the place) | Heating × zone factor; none in hot zones | `HeatDemand.zoneFactor` |
 | 2 Hot water, cooking | People, uses | Demand when bills are missing | `Household` |
 | 3 Bills, 3 months | Electricity, gas | "Check" / "very high" warning by country | `UsageCheck` |
-| 4 Power cuts | (removed) | Not used: the question was taken out | `Battery` (kept, unused) |
+| 4 Power cuts | Power cuts, how long, full independence | Stay on the grid or not; battery advice and size | `Battery.plan`, `Battery.kwh` |
 | 5 Space | Spaces, sizes, roof facing | kWp on the roof, orientation, dust | `SolarPv` |
 | 6 Ownership | Ownership | Tenants: only options without landlord works | `Eligibility.filter` |
 | 7 Upkeep | Hands-on | "No upkeep": no wind, hydro, wood, biogas | `Eligibility.filter` |
@@ -81,6 +81,8 @@ Marked `[Judgement, WeShape]` in the code:
 - **Solar self-consumption for other sizes.** Larger systems: share × 1 ÷ ratio; smaller: kept;
   battery gain in proportion below 0.5 kWh/kWp. See `docs/research/self-consumption.md`.
 - **CO₂ supply chain outside the UK.** Half to double the UK value. See `docs/research/co2.md`.
+- **Power cut answers onto the expert's battery table.** Three cells and the off-grid days. See
+  `docs/decisions/2026-11-14-power-cuts-back.md`.
 - **Mapping the "wind exposure" answer onto the terrain table.** To do.
 
 ## Still missing
@@ -92,4 +94,4 @@ Marked `[Judgement, WeShape]` in the code:
   - national building typologies (TABULA);
   - a country table for permits and plug-in solar;
   - old non-condensing gas boiler efficiency.
-- **Not researched, by decision:** prices (partner companies' prices, else a range); power cuts (question removed).
+- **Not researched, by decision:** prices (partner companies' prices, else a range).
