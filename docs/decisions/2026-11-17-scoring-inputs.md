@@ -6,6 +6,12 @@ Date: 2026-11-17. Agreed by Timi with the energy expert.
 
 `docs/expert/2026-11-reference-values-and-weights-answers.docx` (our request, filled in).
 
+**The numbers in use live in `src/main/resources/calc/scoring.xlsx`** (sheets Criteria, Weights,
+Exclusions, Other segments; how to edit is on the sheet "Read me"). The backend reads it at start-up
+(`Scoring`, `ScoringConfig`) and refuses a broken file with the reason: a missing row, a column of
+weights not adding up to 100%, a log scale with 0. To change a number: edit the Excel file, commit,
+release. The tables below are the expert's original answers.
+
 ### Reference values (0–100 points, proportional in between)
 
 | Criterion | Unit | 100 points | 0 points |
@@ -64,4 +70,4 @@ smallholder farm (€1,800–135,000), a small or medium business or commercial 
 - Our tiers for maintenance effort and site fit for each option (`[Judgement, WeShape]`, for the
   expert to confirm).
 - What "hours a day without backup" means for each option (grid, solar without battery, etc.).
-- The scoring code itself.
+- The scoring of each option (the numbers and their checks are in place: `Scoring`, `ScoringTest`).

@@ -42,7 +42,7 @@ source, and `ExpertNumbersTest` checks the code against the expert's own worked 
 | 5 Space | Spaces, sizes, roof facing | kWp on the roof, orientation, dust | `SolarPv` |
 | 6 Ownership | Ownership | Tenants: only options without landlord works | `Eligibility.filter` |
 | 7 Upkeep | Hands-on | "No upkeep": no wind, hydro, wood, biogas | `Eligibility.filter` |
-| 8 Profile weights | Priority | Reference values, weights and exclusion limits for **five** answers ("reliable supply" is back) | to do (`docs/decisions/2026-11-17-scoring-inputs.md`) |
+| 8 Profile weights | Priority | Reference values, weights and exclusion limits for **five** answers ("reliable supply" is back) | `Scoring`, read from `calc/scoring.xlsx` (edit there); scoring each option to do |
 | 9 River, wind, animals, biomass | Follow-ups, maps | Hydro, wind, biogas, boiler rules | `Hydro`, `Wind`, `Eligibility` |
 | 10 Areas to keep free | Exclude question | Roof edge strips (0.5 m, 1 m around windows) | to do |
 | 11 Costs, lifetimes | Currency, bills | Payback | to do: partner companies' prices, else a range; not researched (`docs/decisions/2026-11-12-prices-as-ranges.md`) |
