@@ -55,6 +55,8 @@ public class SecurityConfig {
                             .requestMatchers(
                                     "/api/v1/ping",
                                     "/api/v1/languages",
+                                    // After a failed sign-in, before any token exists; limited per client.
+                                    "/api/v1/auth/sign-in-hint",
                                     // Map pictures and their legend: the same for everyone, no personal data.
                                     "/api/v1/solar/layers",
                                     "/api/v1/solar/layers/**",

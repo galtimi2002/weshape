@@ -4,6 +4,8 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.auth.FirebaseAuth;
+import com.weshape.backend.auth.FirebaseSignInHints;
+import com.weshape.backend.auth.SignInHints;
 import com.weshape.backend.security.DevTokenVerifier;
 import com.weshape.backend.security.FirebaseTokenVerifier;
 import com.weshape.backend.security.TokenVerifier;
@@ -47,6 +49,15 @@ public class FirebaseConfig {
         }
         FirebaseApp app = firebaseApp();
         return new FirebaseTokenVerifier(FirebaseAuth.getInstance(app));
+    }
+
+    /** Dev mode has no Firebase accounts, so no address is a Google one. */
+    @Bean
+    public SignInHints signInHints() throws IOException {
+        if ("dev".equalsIgnoreCase(authMode)) {
+            return email -> false;
+        }
+        return new FirebaseSignInHints(FirebaseAuth.getInstance(firebaseApp()));
     }
 
     private FirebaseApp firebaseApp() throws IOException {
