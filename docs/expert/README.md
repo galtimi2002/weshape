@@ -9,7 +9,8 @@ source, and `ExpertNumbersTest` checks the code against the expert's own worked 
 | File | What it is |
 |---|---|
 | `2026-11-expert-input-answers-v2.pdf` | The expert's answers to our 12 questions (November 2026), with sources S1–S37. Values are tagged [Sourced], [Derived] or [Judgement]. |
-| `2026-11-reference-values-and-weights-request.docx` | Our request for the scoring numbers (reference values, weights, exclusion limits). **Not answered yet.** |
+| `2026-11-reference-values-and-weights-request.docx` | Our request for the scoring numbers (reference values, weights, exclusion limits). |
+| `2026-11-reference-values-and-weights-answers.docx` | The expert's answers to it (17 November 2026): five priorities, two new criteria (reliability, site fit), exclusion limits. See `docs/decisions/2026-11-17-scoring-inputs.md`. |
 
 ## The expert's own remarks (sent with the answers)
 
@@ -41,7 +42,7 @@ source, and `ExpertNumbersTest` checks the code against the expert's own worked 
 | 5 Space | Spaces, sizes, roof facing | kWp on the roof, orientation, dust | `SolarPv` |
 | 6 Ownership | Ownership | Tenants: only options without landlord works | `Eligibility.filter` |
 | 7 Upkeep | Hands-on | "No upkeep": no wind, hydro, wood, biogas | `Eligibility.filter` |
-| 8 Profile weights | Priority | **Not answered**: the expert wants to see all the sets first. Now **four** answers: "reliable supply" was removed with the power cuts question | waiting |
+| 8 Profile weights | Priority | Reference values, weights and exclusion limits for **five** answers ("reliable supply" is back) | to do (`docs/decisions/2026-11-17-scoring-inputs.md`) |
 | 9 River, wind, animals, biomass | Follow-ups, maps | Hydro, wind, biogas, boiler rules | `Hydro`, `Wind`, `Eligibility` |
 | 10 Areas to keep free | Exclude question | Roof edge strips (0.5 m, 1 m around windows) | to do |
 | 11 Costs, lifetimes | Currency, bills | Payback | to do: partner companies' prices, else a range; not researched (`docs/decisions/2026-11-12-prices-as-ranges.md`) |
@@ -88,8 +89,7 @@ Marked `[Judgement, WeShape]` in the code:
 
 ## Still missing
 
-- **From the expert:** the filled-in reference values and weights
-  (`2026-11-reference-values-and-weights-request.docx`).
+- **From the expert:** confirmation of our maintenance and site fit tiers for each option.
 - **Data:**
   - degree-days by place (climate zone; turning 3 months of bills into a year);
   - national building typologies (TABULA);
