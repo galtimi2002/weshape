@@ -78,7 +78,7 @@ public final class Battery {
      * Advice from the app's answers (decided with Timi, docs/decisions/2026-11-14-power-cuts-back.md),
      * row by row from the expert's table (section 4):
      * <ul>
-     *   <li>no grid, or wants full independence → off-grid;</li>
+     *   <li>no grid → off-grid; wants full independence → off-grid where {@link #offGridPossible} allows it;</li>
      *   <li>never → none;</li>
      *   <li>once or twice a year: short → none (under 60 min/yr); hours → optional (60–300 min/yr);
      *       over a day → backup (a long event);</li>
@@ -88,7 +88,8 @@ public final class Battery {
      * </ul>
      */
     public static Advice plan(boolean hasGrid, boolean wantsIndependence, Cuts cuts, CutLength length) {
-        if (!hasGrid || wantsIndependence) return Advice.OFF_GRID;
+        if (!hasGrid) return Advice.OFF_GRID;
+        if (wantsIndependence && offGridPossible(cuts, length)) return Advice.OFF_GRID;
         if (cuts == null || cuts == Cuts.NEVER) return Advice.NONE;
         if (length == null) throw new IllegalArgumentException("How long the cuts last is needed");
         return switch (cuts) {
@@ -105,6 +106,16 @@ public final class Battery {
             case DAILY -> length == CutLength.UNDER_HOUR ? Advice.BACKUP : Advice.HYBRID_MAIN;
             case NEVER -> Advice.NONE;
         };
+    }
+
+    /**
+     * Whether full independence of the grid can be offered (decided with Timi,
+     * docs/decisions/2026-11-19-question-changes.md): yes, unless the power goes out most days for hours or
+     * longer; "most days, under an hour" is the worst case still allowed. The app does not ask "fully
+     * independent?" when this is false.
+     */
+    public static boolean offGridPossible(Cuts cuts, CutLength length) {
+        return !(cuts == Cuts.DAILY && (length == CutLength.HOURS || length == CutLength.OVER_DAY));
     }
 
     /**

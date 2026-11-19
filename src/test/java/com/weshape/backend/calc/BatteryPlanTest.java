@@ -43,12 +43,36 @@ class BatteryPlanTest {
     }
 
     @Test
-    @DisplayName("no grid, or full independence wanted: off-grid, whatever the cuts")
+    @DisplayName("no grid: off-grid; full independence wanted: off-grid unless cuts come most days for hours or longer")
     void offGrid() {
         assertThat(Battery.plan(false, false, null, null)).isEqualTo(OFF_GRID);
+        assertThat(Battery.plan(false, false, DAILY, OVER_DAY)).isEqualTo(OFF_GRID);
         assertThat(Battery.plan(true, true, NEVER, null)).isEqualTo(OFF_GRID);
-        assertThat(Battery.plan(true, true, DAILY, HOURS)).isEqualTo(OFF_GRID);
+        assertThat(Battery.plan(true, true, null, null)).isEqualTo(OFF_GRID);
+        assertThat(Battery.plan(true, true, HARDLY, UNDER_HOUR)).isEqualTo(OFF_GRID);
+        assertThat(Battery.plan(true, true, HARDLY, OVER_DAY)).isEqualTo(OFF_GRID);
+        assertThat(Battery.plan(true, true, MONTHLY, HOURS)).isEqualTo(OFF_GRID);
+        assertThat(Battery.plan(true, true, MONTHLY, OVER_DAY)).isEqualTo(OFF_GRID);
+        // "Most days, under an hour" is the worst case still allowed.
+        assertThat(Battery.plan(true, true, DAILY, UNDER_HOUR)).isEqualTo(OFF_GRID);
+        // Most days for hours or longer: not possible, the table's own advice instead.
+        assertThat(Battery.plan(true, true, DAILY, HOURS)).isEqualTo(HYBRID_MAIN);
+        assertThat(Battery.plan(true, true, DAILY, OVER_DAY)).isEqualTo(HYBRID_MAIN);
         assertThatThrownBy(() -> Battery.plan(true, false, MONTHLY, null)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("full independence is possible for every answer but most days for hours or longer")
+    void offGridPossible() {
+        assertThat(Battery.offGridPossible(null, null)).isTrue();
+        assertThat(Battery.offGridPossible(NEVER, null)).isTrue();
+        for (var length : Battery.CutLength.values()) {
+            assertThat(Battery.offGridPossible(HARDLY, length)).as("hardly ever, " + length).isTrue();
+            assertThat(Battery.offGridPossible(MONTHLY, length)).as("monthly, " + length).isTrue();
+        }
+        assertThat(Battery.offGridPossible(DAILY, UNDER_HOUR)).isTrue();
+        assertThat(Battery.offGridPossible(DAILY, HOURS)).isFalse();
+        assertThat(Battery.offGridPossible(DAILY, OVER_DAY)).isFalse();
     }
 
     @Test
