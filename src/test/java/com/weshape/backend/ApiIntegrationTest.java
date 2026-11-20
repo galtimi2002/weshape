@@ -45,7 +45,7 @@ class ApiIntegrationTest {
 
         mockMvc.perform(get("/api/v1/languages").param("country", "HU"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.languages.length()").value(25))
+                .andExpect(jsonPath("$.languages.length()").value(59))
                 .andExpect(jsonPath("$.default").value("en"))
                 .andExpect(jsonPath("$.forCountry").value("hu"));
     }

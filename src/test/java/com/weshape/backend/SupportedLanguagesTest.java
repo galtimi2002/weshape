@@ -8,8 +8,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SupportedLanguagesTest {
 
     @Test
-    void twentyFiveLanguagesEnglishFirst() {
-        assertThat(SupportedLanguages.CODES).hasSize(25).startsWith("en").doesNotHaveDuplicates();
+    void fiftyNineLanguagesEnglishFirst() {
+        assertThat(SupportedLanguages.CODES).hasSize(59).startsWith("en").doesNotHaveDuplicates();
     }
 
     @Test
@@ -27,7 +27,15 @@ class SupportedLanguagesTest {
         assertThat(SupportedLanguages.forCountry("IN")).isEqualTo("hi");
         assertThat(SupportedLanguages.forCountry("AE")).isEqualTo("ar");
         assertThat(SupportedLanguages.forCountry("VN")).isEqualTo("vi");
-        assertThat(SupportedLanguages.forCountry("NO")).isEqualTo("en");
+        assertThat(SupportedLanguages.forCountry("NO")).isEqualTo("nb");
+        assertThat(SupportedLanguages.forCountry("CZ")).isEqualTo("cs");
+        assertThat(SupportedLanguages.forCountry("UA")).isEqualTo("uk");
+        assertThat(SupportedLanguages.forCountry("BA")).isEqualTo("bs");
+        assertThat(SupportedLanguages.forCountry("ME")).isEqualTo("sr");
+        assertThat(SupportedLanguages.forCountry("KE")).isEqualTo("sw");
+        assertThat(SupportedLanguages.forCountry("PK")).isEqualTo("ur");
+        assertThat(SupportedLanguages.forCountry("IE")).isEqualTo("en");
+        assertThat(SupportedLanguages.forCountry("NG")).isEqualTo("en");
         assertThat(SupportedLanguages.forCountry(null)).isEqualTo("en");
     }
 

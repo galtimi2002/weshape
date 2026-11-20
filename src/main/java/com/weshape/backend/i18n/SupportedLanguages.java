@@ -17,11 +17,14 @@ public final class SupportedLanguages {
 
     public static final String DEFAULT = "en";
 
-    /** ISO 639-1 codes, in the order the app lists them. */
+    /** ISO 639-1 codes, in the order the app lists them: English first, then by each language's own name. */
     public static final List<String> CODES = List.of(
-            "en", "hu", "ro", "de", "fr", "es", "it", "pt", "nl", "pl",
-            "hr", "fi", "sv", "da", "el", "ru", "tr", "zh", "ja", "ko",
-            "hi", "bn", "id", "vi", "ar");
+            "en", "id", "ms", "bs", "ca", "cs", "cy", "da", "de", "et",
+            "es", "eu", "tl", "fr", "ga", "gl", "ha", "hr", "is", "it",
+            "sw", "lv", "lb", "lt", "hu", "mt", "nl", "nb", "pl", "pt",
+            "ro", "sq", "sk", "sl", "fi", "sv", "vi", "tr", "yo", "el",
+            "be", "bg", "mk", "ru", "sr", "uk", "ur", "ar", "fa", "ne",
+            "hi", "bn", "pa", "th", "my", "am", "zh", "ja", "ko");
 
     private static final Set<String> CODE_SET = Set.copyOf(CODES);
 
@@ -31,15 +34,13 @@ public final class SupportedLanguages {
         map("hu", "HU");
         map("ro", "RO", "MD");
         map("de", "DE", "AT", "CH", "LI");
-        map("fr", "FR", "MC", "LU", "SN", "CI", "ML", "BF", "NE", "TG", "BJ", "GN",
-                "CD", "CG", "CM", "GA", "MG", "HT", "CF", "TD", "DJ", "KM", "BI");
-        map("es", "ES", "MX", "AR", "CO", "CL", "PE", "VE", "EC", "GT", "CU", "BO",
-                "DO", "HN", "PY", "SV", "NI", "CR", "PA", "UY", "PR", "GQ");
+        map("fr", "FR", "MC", "LU", "SN", "CI", "ML", "BF", "NE", "TG", "BJ", "GN", "CD", "CG", "CM", "GA", "MG", "HT", "CF", "TD", "DJ", "KM", "BI");
+        map("es", "ES", "MX", "AR", "CO", "CL", "PE", "VE", "EC", "GT", "CU", "BO", "DO", "HN", "PY", "SV", "NI", "CR", "PA", "UY", "PR", "GQ");
         map("it", "IT", "SM", "VA");
         map("pt", "PT", "BR", "AO", "MZ", "CV", "GW", "ST", "TL");
         map("nl", "NL", "BE", "SR");
         map("pl", "PL");
-        map("hr", "HR", "BA");
+        map("hr", "HR");
         map("fi", "FI");
         map("sv", "SE", "AX");
         map("da", "DK", "GL", "FO");
@@ -53,8 +54,31 @@ public final class SupportedLanguages {
         map("bn", "BD");
         map("id", "ID");
         map("vi", "VN");
-        map("ar", "SA", "AE", "EG", "MA", "DZ", "TN", "JO", "QA", "KW", "OM", "BH",
-                "LB", "IQ", "LY", "SY", "YE", "SD", "PS", "MR");
+        map("ar", "SA", "AE", "EG", "MA", "DZ", "TN", "JO", "QA", "KW", "OM", "BH", "LB", "IQ", "LY", "SY", "YE", "SD", "PS", "MR");
+        map("cs", "CZ");
+        map("bg", "BG");
+        map("sk", "SK");
+        map("lt", "LT");
+        map("sl", "SI");
+        map("lv", "LV");
+        map("et", "EE");
+        map("mt", "MT");
+        map("uk", "UA");
+        map("sr", "RS", "ME");
+        map("nb", "NO", "SJ");
+        map("sq", "AL", "XK");
+        map("mk", "MK");
+        map("bs", "BA");
+        map("ca", "AD");
+        map("is", "IS");
+        map("ur", "PK");
+        map("sw", "KE", "TZ");
+        map("fa", "IR", "AF");
+        map("th", "TH");
+        map("ms", "MY", "BN");
+        map("am", "ET");
+        map("my", "MM");
+        map("ne", "NP");
     }
 
     private static final Set<String> ISO_COUNTRIES = Set.of(Locale.getISOCountries());
